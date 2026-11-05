@@ -1,0 +1,22 @@
+# Build outputs
+build/
+export/
+dist/*.img
+dist/*.img.xz
+*.img
+*.iso
+*.ipa
+Payload/
+xcarchive/
+.derived/
+serial.log
+# Godot
+.godot/
+xr-home/export/
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake-build-*/
+# Godot-cpp / monado clones
+third_party/
+vendor/

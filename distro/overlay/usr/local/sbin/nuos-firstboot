@@ -1,0 +1,65 @@
+#!/bin/sh
+# NuOS first-boot AP provisioning.
+# Generates SSID NuOS-XXXX from wlan0's MAC and a random 12-char WPA2 PSK,
+# renders /etc/hostapd/hostapd.conf from the template, records credentials
+# in /var/lib/nuos/ap.conf, and prints them on the console for serial/SSH
+# recovery. Skips silently when wlan0 is absent (QEMU, CI smoke).
+set -eu
+
+MARKER=/var/lib/nuos/firstboot.done
+IFACE="${NUOS_WIFI_INTERFACE:-wlan0}"
+
+if [ -e "$MARKER" ]; then
+    echo "nuos-firstboot: already provisioned, skipping" > /dev/console
+    exit 0
+fi
+
+if [ ! -e "/sys/class/net/$IFACE" ]; then
+    echo "nuos-firstboot: no $IFACE present, skipping (no AP provisioning)" > /dev/console
+    exit 0
+fi
+
+mkdir -p /var/lib/nuos /etc/hostapd
+
+# ---- SSID from MAC --------------------------------------------------------
+MAC=$(cat "/sys/class/net/$IFACE/address")
+MAC_HEX=$(printf '%s' "$MAC" | tr -d ':')
+SUFFIX=$(printf '%s' "$MAC_HEX" | tail -c 5)   # last 2 octets -> 4 hex chars
+SSID="NuOS-${SUFFIX}"
+
+# ---- 12-char PSK (alnum, no ambiguous chars) ------------------------------
+PSK=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 12)
+[ "${#PSK}" -eq 12 ] || { echo "nuos-firstboot: PSK generation failed" >&2; exit 1; }
+
+# ---- credentials record ----------------------------------------------------
+cat > /var/lib/nuos/ap.conf <<CREDS
+# NuOS Wi-Fi AP credentials (generated on first boot)
+interface=$IFACE
+ssid=$SSID
+psk=$PSK
+subnet=${NUOS_AP_SUBNET:-10.66.0.1/24}
+CREDS
+chmod 600 /var/lib/nuos/ap.conf
+
+# ---- hostapd config from template ------------------------------------------
+TPL=/etc/hostapd/hostapd.conf
+if [ -f "$TPL" ]; then
+    sed -e "s/@INTERFACE@/$IFACE/g" \
+        -e "s/@SSID@/$SSID/g" \
+        -e "s/@PSK@/$PSK/g" \
+        "$TPL" > "$TPL.rendered"
+    mv "$TPL.rendered" "$TPL"
+    chmod 600 "$TPL"
+fi
+
+# Restart the AP stack now that a valid config exists (hostapd/dnsmasq may
+# have failed earlier in this boot with the placeholder template).
+systemctl try-restart hostapd.service || true
+systemctl try-restart dnsmasq.service || true
+
+: > "$MARKER"
+
+echo "nuos-firstboot: AP provisioned" > /dev/console
+echo "  SSID: $SSID" > /dev/console
+echo "  PSK:  $PSK"  > /dev/console
+echo "  (also stored in /var/lib/nuos/ap.conf, mode 0600)" > /dev/console

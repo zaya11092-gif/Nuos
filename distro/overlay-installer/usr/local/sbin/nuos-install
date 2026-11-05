@@ -1,0 +1,120 @@
+#!/bin/bash
+# NuOS interactive installer — runs on the live system (root in RAM).
+# Writes a complete, bootable NuOS system onto a target disk.
+# Guard: only runs on the live installer medium (marker is excluded from copies).
+[[ -f /.live-installer ]] || { echo "nuos-install: not the live installer, exiting." >&2; exit 0; }
+
+set -uo pipefail
+echo "NUOS_INSTALLER_READY" > /dev/console
+
+PARTS_ESP_START=2048
+PARTS_ESP_SECTORS=524288          # 256 MiB ESP
+PARTS_ROOT_START=526336
+PARTS_TAIL_GAP=2048               # 1 MiB for GPT backup
+
+BOARD_CONF=/etc/nuos/board.conf
+. "$BOARD_CONF" 2>/dev/null || true
+
+fail() { whiptail --title "NuOS Installer" --msgbox "ERROR: $1" 8 60; exit 1; }
+
+whiptail --title "NuOS Installer" --msgbox \
+"Welcome to the NuOS installer.
+
+This will install the NuOS operating system (VR headset platform) to a disk
+of your choice. The target disk will be COMPLETELY ERASED.
+
+Board profile : ${NUOS_BOARD_NAME:-ideapad-chromebook}
+Renderer      : Intel UHD / QuickSync (VAAPI)
+Wi-Fi         : board hosts a Wi-Fi AP for the iPhone display" 16 72 || exit 0
+
+# --- target disk -----------------------------------------------------------
+mapfile -t DISKS < <(lsblk -drno NAME,SIZE,MODEL,TYPE | awk '$4=="disk"{printf "%s|%s|%s\n", $1, $2, $3}')
+[ ${#DISKS[@]} -gt 0 ] || fail "No disks found."
+CHOICES=()
+for d in "${DISKS[@]}"; do IFS='|' read -r n s m <<< "$d"; CHOICES+=("/dev/$n" "$s  ${m:-}"); done
+TARGET=$(whiptail --title "Target disk" --menu "Install NuOS to:" 16 72 6 "${CHOICES[@]}" 3>&1 1>&2 2>&3) || exit 0
+SIZE=$(lsblk -drno SIZE "$TARGET")
+whiptail --title "Confirm erase" --yesno \
+"$TARGET (${SIZE}) will be COMPLETELY ERASED.\n\nAll data will be lost. Continue?" 10 60 \
+  || { echo "cancelled"; exit 0; }
+
+# --- AP configuration ------------------------------------------------------
+DEF_SSID="NuOS-$(set -- $(cat /sys/class/net/wlan0/address 2>/dev/null | tr -d :); echo ${4}${5} | tr 'a-f' 'A-F' | cut -c1-4)"
+[ -n "$DEF_SSID" ] && [[ "$DEF_SSID" == NuOS-* ]] || DEF_SSID="NuOS-$(tr -dc A-Z0-9 </dev/urandom | head -c4)"
+SSID=$(whiptail --title "Wi-Fi AP" --inputbox "Headset Wi-Fi AP SSID:" 9 60 "$DEF_SSID" 3>&1 1>&2 2>&3) || exit 0
+PSK=$(whiptail --title "Wi-Fi AP" --passwordbox "WPA2 passphrase (empty = generate):" 10 60 "" 3>&1 1>&2 2>&3) || exit 0
+[ -n "$PSK" ] || PSK=$(tr -dc A-Za-z0-9 </dev/urandom | head -c12)
+ROOTPW=$(whiptail --title "Root password" --passwordbox "Root password for SSH (empty = locked):" 10 60 "" 3>&1 1>&2 2>&3) || exit 0
+
+whiptail --title "Ready to install" --yesno \
+"Target   : $TARGET ($SIZE)\nSSID     : $SSID\nInstall NuOS now?" 10 60 || exit 0
+
+# --- partition + format ----------------------------------------------------
+{
+  echo "start=$PARTS_ESP_START, size=$PARTS_ESP_SECTORS, type=c12a7328-f81f-11d2-ba4b-00a0c93ec93b, name=ESP"
+  echo "start=$PARTS_ROOT_START, type=0fc63daf-8483-4772-8e79-3d69d8477de4, name=root"
+} | sfdisk --quiet "$TARGET" || fail "partitioning failed"
+partprobe "$TARGET" 2>/dev/null; udevadm settle
+ESP_P="${TARGET}1"; ROOT_P="${TARGET}2"
+[[ -b "$ROOT_P" ]] || fail "root partition $ROOT_P did not appear"
+
+mkfs.vfat -F 32 -n ESP "$ESP_P" || fail "mkfs.vfat failed"
+mkfs.ext4 -q -F -L nuos-root "$ROOT_P" || fail "mkfs.ext4 failed"
+
+ESP_UUID=$(blkid -s PARTUUID -o value "$ESP_P")
+ROOT_UUID=$(blkid -s PARTUUID -o value "$ROOT_P")
+[ -n "$ROOT_UUID" ] || fail "could not read PARTUUIDs"
+
+# --- copy system -----------------------------------------------------------
+MNT=/mnt/target; rm -rf "$MNT"; mkdir -p "$MNT"
+mount "$ROOT_P" "$MNT" || fail "mount failed"
+
+whiptail --title "Installing" --infon "Copying system (2-5 min)..." 8 60 &
+INFO_PID=$!
+tar -cf - --one-file-system \
+    --exclude=./proc --exclude=./sys --exclude=./dev --exclude=./run \
+    --exclude=./tmp --exclude=./mnt --exclude=./media \
+    --exclude=./.live-installer --exclude=./etc/nuos/installer.env \
+    . | (cd "$MNT" && tar -xf -)
+kill $INFO_PID 2>/dev/null
+[ -d "$MNT/usr/bin" ] || { umount "$MNT"; fail "system copy failed"; }
+
+mkdir -p "$MNT"/{proc,sys,dev,run,tmp,boot/efi}
+chmod 1777 "$MNT/tmp"
+
+# install-time config on the target
+mkdir -p "$MNT/etc/nuos" "$MNT/var/lib/nuos"
+cat > "$MNT/var/lib/nuos/ap.conf" <<APCONF
+SSID=$SSID
+PSK=$PSK
+APCONF
+[ -z "$ROOTPW" ] || chroot "$MNT" /bin/bash -c "echo 'root:$ROOTPW' | chpasswd"
+
+# installer must never run on the installed system
+rm -f "$MNT/etc/systemd/system/multi-user.target.wants/nuos-installer.service"
+
+# --- ESP + bootloader ------------------------------------------------------
+mkdir -p "$MNT/boot/efi"
+mount "$ESP_P" "$MNT/boot/efi" || { umount "$MNT"; fail "ESP mount failed"; }
+KVER=$(cd "$MNT/boot" && ls vmlinuz-* 2>/dev/null | head -1 | cut -d- -f2-)
+cp "$MNT/boot/vmlinuz-$KVER" "$MNT/boot/efi/vmlinuz"
+cp "$MNT/boot/initrd.img-$KVER" "$MNT/boot/efi/initrd.img"
+SB_EFI="$MNT/usr/lib/systemd/boot/efi/systemd-bootx64.efi"
+[ -f "$SB_EFI" ] || SB_EFI="$MNT/usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed"
+mkdir -p "$MNT/boot/efi/EFI/BOOT" "$MNT/boot/efi/loader/entries"
+cp "$SB_EFI" "$MNT/boot/efi/EFI/BOOT/BOOTX64.EFI"
+printf 'timeout 3\ndefault nuos\n' > "$MNT/boot/efi/loader/loader.conf"
+cat > "$MNT/boot/efi/loader/entries/nuos.conf" <<ENTRY
+title NuOS
+linux /vmlinuz
+initrd /initrd.img
+options root=PARTUUID=$ROOT_UUID ro quiet video=eDP-1:off console=ttyS0,115200 $NUOS_CMDLINE_EXTRA
+ENTRY
+printf 'PARTUUID=%s  /       ext4  defaults,noatime  0 1\nPARTUUID=%s  /boot/efi vfat defaults,noatime,umask=0077 0 2\n' \
+  "$ROOT_UUID" "$ESP_UUID" > "$MNT/etc/fstab"
+
+umount "$MNT/boot/efi"; umount "$MNT"
+
+whiptail --title "Done" --yesno \
+"NuOS installed to $TARGET.\n\nAP: $SSID / $PSK (also in /var/lib/nuos/ap.conf on the target)\n\nReboot now?" 11 60 \
+  && systemctl reboot || true

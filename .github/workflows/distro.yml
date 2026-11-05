@@ -1,0 +1,109 @@
+name: distro
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'distro/**'
+      - 'tools/qemu-smoke.sh'
+      - 'tools/qemu-smoke-iso.sh'
+      - '.github/workflows/distro.yml'
+  pull_request:
+    paths:
+      - 'distro/**'
+      - 'tools/qemu-smoke.sh'
+      - 'tools/qemu-smoke-iso.sh'
+      - '.github/workflows/distro.yml'
+  workflow_dispatch:
+
+jobs:
+  build-image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            mmdebstrap fdisk sfdisk e2fsprogs dosfstools mtools
+
+      - name: Build NuOS image
+        run: |
+          sudo bash distro/build-image.sh \
+            --out nuos.img --size 4G --board ideapad-chromebook
+
+      - name: Compress image
+        run: xz -9 -T0 -v nuos.img
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuos-image
+          path: nuos.img.xz
+          compression-level: 0
+          retention-days: 7
+
+  smoke:
+    needs: build-image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install QEMU + OVMF
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qemu-system-x86 ovmf xz-utils
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nuos-image
+
+      - name: Smoke boot
+        run: |
+          unxz -k nuos.img.xz
+          bash tools/qemu-smoke.sh nuos.img
+
+  build-iso:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            mmdebstrap fdisk sfdisk e2fsprogs dosfstools mtools cpio xorriso
+
+      - name: Build NuOS installer ISO
+        run: |
+          sudo bash distro/build-image.sh \
+            --iso --board ideapad-chromebook
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuos-installer-iso
+          path: nuos.iso
+          compression-level: 0
+          retention-days: 7
+
+  smoke-iso:
+    needs: build-iso
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install QEMU + OVMF
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qemu-system-x86 ovmf
+
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nuos-installer-iso
+
+      - name: Smoke boot installer ISO
+        run: bash tools/qemu-smoke-iso.sh nuos.iso

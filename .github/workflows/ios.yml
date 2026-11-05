@@ -1,0 +1,53 @@
+name: ios-build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "ios/**"
+      - ".github/workflows/ios.yml"
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios/NuosView
+        run: xcodegen
+
+      - name: Archive (unsigned)
+        working-directory: ios/NuosView
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project NuosView.xcodeproj \
+            -scheme NuosView \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath build/NuosView.xcarchive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            | xcpretty || exit 1
+
+      - name: Package unsigned IPA
+        run: |
+          APP=$(find ios/NuosView/build -type d -name "NuosView.app" | head -n1)
+          echo "App bundle: $APP"
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -r NuosView.ipa Payload
+          mkdir -p dist
+          mv NuosView.ipa dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NuosView-ipa
+          path: dist/NuosView.ipa
+          if-no-files-found: error

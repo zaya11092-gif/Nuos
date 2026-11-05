@@ -1,0 +1,14 @@
+[Match]
+Name=wlan0
+
+[Network]
+Address=10.66.0.1/24
+IPForward=no
+# The AP link never "arrives" the way an uplink does; never gate boot on it.
+ConfigureWithoutCarrier=yes
+
+[Link]
+RequiredForOnline=no
+
+[DHCP]
+# Static AP address; no DHCP client here (dnsmasq serves the clients).

@@ -1,0 +1,43 @@
+# xcodegen project for the NuOS VR viewer (iPhone landscape only).
+# Generate with: xcodegen   (from ios/NuosView)
+name: NuosView
+options:
+  bundleIdPrefix: dev.nuos
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    TARGETED_DEVICE_FAMILY: "1"        # iPhone
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    ENABLE_PREVIEWS: "NO"
+    CODE_SIGN_STYLE: Automatic
+targets:
+  NuosView:
+    type: application
+    platform: iOS
+    sources:
+      - path: NuosView
+    frameworks:
+      - framework: ARKit.framework
+      - framework: Metal.framework
+      - framework: MetalKit.framework
+      - framework: Vision.framework
+      - framework: Network.framework
+    info:
+      path: NuosView/Info.plist
+      properties:
+        CFBundleDisplayName: NuosView
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSCameraUsageDescription: "NuOS needs the camera for ARKit head tracking and hand tracking while streaming from your NuOS board."
+        NSLocalNetworkUsageDescription: "NuOS connects to your NuOS board on the local network to receive the VR video stream."
+        NSBonjourServices:
+          - _nuos-xr._tcp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.nuos.NuosView
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"

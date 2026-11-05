@@ -1,0 +1,14 @@
+[Unit]
+Description=NuOS HEVC streamer (VAAPI -> UDP 48010 + TCP 48012 control)
+Wants=nuos-tracker.service
+After=nuos-tracker.service
+ConditionPathExists=/usr/local/bin/nuos-stream
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nuos-stream
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=nuos.target

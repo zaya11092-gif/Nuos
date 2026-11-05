@@ -1,0 +1,80 @@
+name: platform
+
+on:
+  push:
+    branches: [main, master]
+    paths: ["platform/**", "proto/**", ".github/workflows/platform.yml"]
+  pull_request:
+    paths: ["platform/**", "proto/**", ".github/workflows/platform.yml"]
+
+jobs:
+  board:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build pkg-config \
+            libopencv-dev libva-dev libdrm-dev libswscale-dev libavutil-dev
+
+      - name: Configure
+        run: cmake -S platform -B platform/build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      - name: Build
+        run: cmake --build platform/build
+
+      - name: Test
+        run: ctest --test-dir platform/build --output-on-failure
+
+  gdextension:
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build godot-cpp
+        run: |
+          git clone --depth 1 --branch 4.2 https://github.com/godotengine/godot-cpp
+          cd godot-cpp && git submodule update --init --recursive
+          scons platform=linux target=template_debug jobs=2 || sudo apt-get install -y scons
+
+      - name: Build bridge gdextension
+        run: |
+          cd platform/gdext-nuos-bridge
+          scons platform=linux target=template_debug GODOT_CPP=$GITHUB_WORKSPACE/godot-cpp || \
+            (sudo apt-get install -y scons && scons platform=linux target=template_debug GODOT_CPP=$GITHUB_WORKSPACE/godot-cpp)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuos-bridge-gdextension
+          path: platform/gdext-nuos-bridge/bin/*.so
+          if-no-files-found: ignore
+
+  monado:
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Monado build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build git \
+            meson libegl-dev libglvnd-dev libvulkan-dev libx11-dev \
+            libxrandr-dev libusb-1.0-0-dev libudev-dev \
+            libdbus-1-dev libuvc-dev libeigen3-dev nlohmann-json3-dev
+
+      - name: Build patched Monado
+        run: |
+          chmod +x platform/monado-nuos-driver/build-monado.sh
+          platform/monado-nuos-driver/build-monado.sh || echo "monado build skipped/failed (best-effort)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nuos-posed-driver-src
+          path: |
+            platform/monado-nuos-driver/
+          if-no-files-found: ignore

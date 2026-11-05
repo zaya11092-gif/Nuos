@@ -1,0 +1,11 @@
+--- a/src/xrt/drivers/CMakeLists.txt
++++ b/src/xrt/drivers/CMakeLists.txt
+@@ -0,0 +1,8 @@
++option(XRT_BUILD_DRIVER_NUOS_POSED "Build the NuOS null-HMD (posed) driver" OFF)
++
++if(XRT_BUILD_DRIVER_NUOS_POSED)
++	add_subdirectory(nuos_posed)
++	list(APPEND XRT_SUPPORTED_DRIVER_LIBS drv_nuos_posed)
++	set(XRT_SUPPORTED_DRIVER_LIBS "${XRT_SUPPORTED_DRIVER_LIBS}" PARENT_SCOPE)
++endif()
++

@@ -1,0 +1,1 @@
+root=PARTUUID=%ROOT_PARTUUID% ro quiet video=eDP-1:off console=ttyS0,115200 intel_iommu=on

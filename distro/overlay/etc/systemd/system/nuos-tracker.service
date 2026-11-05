@@ -1,0 +1,22 @@
+[Unit]
+Description=NuOS pose/hand tracker (UDP 48011 -> shm)
+# Soft-fail on missing hardware: without /dev/video0 the unit is merely
+# skipped; with a camera but no tracker binary it fails and restarts without
+# blocking the rest of the boot.
+ConditionPathExists=/dev/video0
+After=systemd-udevd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nuos-tracker --device /dev/video0
+Restart=always
+RestartSec=2
+# Restart=always means failure never propagates to boot, and the tracker is
+# expected to exit 0/1 transiently during device enumeration.
+SuccessExitStatus=0 1
+# Real-time FIFO at 20 keeps 60 Hz pose fusion above Wi-Fi IRQ load.
+CPUSchedulingPolicy=fifo
+CPUSchedulingPriority=20
+
+[Install]
+WantedBy=nuos.target

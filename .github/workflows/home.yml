@@ -1,0 +1,73 @@
+name: home
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "xr-home/**"
+      - ".github/workflows/home.yml"
+  pull_request:
+    paths:
+      - "xr-home/**"
+      - ".github/workflows/home.yml"
+  workflow_dispatch:
+
+jobs:
+  export-linux:
+    runs-on: ubuntu-24.04
+    # NOTE: the export-templates download is historically the flaky part
+    # (transient GitHub release asset failures). allow-failure stays false;
+    # the templates step retries once.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore Godot editor binary cache
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-4.3-stable-linux-x86_64
+
+      - name: Download Godot 4.3-stable (linux x86_64)
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot
+          cd ~/godot
+          curl -fSL --retry 2 -o godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_linux.x86_64.zip
+          unzip -o godot.zip
+          chmod +x Godot_v4.3-stable_linux.x86_64
+
+      - name: Put Godot on PATH
+        run: echo "$HOME/godot" >> "$GITHUB_PATH"
+
+      - name: Download export templates (retry once — flaky asset)
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          mkdir -p ~/godot-templates
+          cd ~/godot-templates
+          URL="https://github.com/godotengine/godot/releases/download/4.3-stable/Godot_v4.3-stable_export_templates.tpz"
+          try() {
+            curl -fSL --retry 2 -o templates.tpz "$URL"
+          }
+          try || { echo "templates download failed once, retrying..."; sleep 10; try; }
+          unzip -o templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates
+          mv templates/4.3.stable ~/.local/share/godot/export_templates/
+
+      - name: Import project (headless)
+        run: godot --headless --path xr-home --import
+
+      - name: Export Linux release
+        run: |
+          mkdir -p xr-home/export
+          godot --headless --path xr-home --export-release "Linux" export/nuos-home.x86_64
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuos-home-linux
+          path: xr-home/export/nuos-home.x86_64
+          if-no-files-found: error
