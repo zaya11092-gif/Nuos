@@ -229,6 +229,20 @@ if [ -n "$ISO_OUT" ]; then
     mkdir -p "$ROOTFS/etc/systemd/system/multi-user.target.wants"
     ln -sf ../nuos-installer.service         "$ROOTFS/etc/systemd/system/multi-user.target.wants/nuos-installer.service"
     touch "$ROOTFS/.live-installer"
+    # live system must not try to mount the raw-image fstab PARTUUIDs
+    printf '# NuOS live installer - no fstab entries
+' > "$ROOTFS/etc/fstab"
+    # initramfs needs an /init or the kernel panics after unpack (no root= support)
+    cat > "$ROOTFS/init" <<'INITEOF'
+#!/bin/sh
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+mkdir -p /run
+mount -t tmpfs tmpfs /run
+exec /sbin/init
+INITEOF
+    chmod +x "$ROOTFS/init"
     KVER=$(cd "$ROOTFS/boot" && ls vmlinuz-* 2>/dev/null | head -1 | cut -d- -f2-)
     [ -n "$KVER" ] || { echo "no kernel found for ISO" >&2; exit 1; }
     echo "==> packing live initramfs (large, gzip -1)"
