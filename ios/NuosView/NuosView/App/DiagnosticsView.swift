@@ -166,7 +166,7 @@ private struct KSlider: View {
         VStack(alignment: .leading) {
             Text("\(label): \(String(format: "%.3f", value))")
                 .font(.system(size: 12, design: .monospaced))
-            Slider(value: $value, in: -0.5...0.5) { editing, _ in
+            Slider(value: $value, in: -0.5...0.5) { editing in
                 if !editing { onChange(value) }
             }
             .onChange(of: value) { _, new in onChange(new) }

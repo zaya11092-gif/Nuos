@@ -113,9 +113,10 @@ final class HEVCDecoder {
             return
         }
 
-        let flags: VTDecodeFrameFlags = [VTDecodeFrameFlags.EnableAsynchronousDecompression,
+        let flags: VTDecodeFrameFlags = [VTDecodeFrameFlags._EnableAsynchronousDecompression,
                                          VTDecodeFrameFlags._1xRealTimePlayback]
-        VTDecompressionSessionDecodeFrame(session, sampleBuffer: sb, flags: flags, infoFlagsOut: nil)
+        VTDecompressionSessionDecodeFrame(session, sampleBuffer: sb, flags: flags,
+                                          infoFlagsOut: nil) { _, _, _ in }
         lastFrameSeq = frameSeq
     }
 
@@ -127,45 +128,70 @@ final class HEVCDecoder {
             kCVPixelBufferPixelFormatTypeKey: [kCVPixelFormatType_420YpCbCr8BiPlanarFullRange],
             kCVPixelBufferMetalCompatibilityKey: true,
         ]
+        // The C output callback cannot capture self; route frames through a
+        // static registry keyed by the refCon pointer we pass at creation.
+        let refCon = Unmanaged.passUnretained(self).toOpaque()
+        Self.register(self, for: refCon)
         var sessionOut: VTDecompressionSession?
         let status = VTDecompressionSessionCreate(
             allocator: nil,
             formatDescription: desc,
             decoderSpecification: decoderSpec as CFDictionary,
-            destinationPixelBufferAttributes: dstAttrs as CFDictionary,
-            outputHandler: { [weak self] status, _, sampleBuffer in
-                self?.handleOutput(status: status, sampleBuffer: sampleBuffer)
-            },
+            imageBufferAttributes: dstAttrs as CFDictionary,
+            outputCallback: Self.outputCallback,
             decompressionSessionOut: &sessionOut)
         guard status == noErr, let s = sessionOut else {
             decodeErrors += 1
+            Self.unregister(refCon)
             return
         }
-        // Real-time mode: decode as frames arrive, no reorder/reorder buffering.
-        VTSessionSetProperty(s, key: kVTDecompressionPropertyRealTime, value: kCFBooleanTrue)
+        // Real-time mode: decode as frames arrive, no reorder buffering.
+        VTSessionSetProperty(s, key: kVTDecompressionPropertyRealTime_Key, value: kCFBooleanTrue)
         session = s
     }
 
-    private func handleOutput(status: OSStatus, sampleBuffer: CMSampleBuffer?) {
-        if status == noErr, let pb = CMSampleBufferGetImageBuffer(sampleBuffer) {
-            decodedCount += 1
-            let now = Date()
-            let dt = now.timeIntervalSince(fpsWindowStart)
-            if dt >= 1.0 {
-                decodedFps = Double(decodedCount) / dt
-                decodedCount = 0
-                fpsWindowStart = now
-            }
-            onDecodedFrame?(pb)
-        } else {
-            decodeErrors += 1
+    private func handleOutput(pixelBuffer pb: CVImageBuffer) {
+        decodedCount += 1
+        let now = Date()
+        let dt = now.timeIntervalSince(fpsWindowStart)
+        if dt >= 1.0 {
+            decodedFps = Double(decodedCount) / dt
+            decodedCount = 0
+            fpsWindowStart = now
         }
+        onDecodedFrame?(pb)
+    }
+
+    // MARK: - Output callback registry
+
+    private static let registryLock = NSLock()
+    private static var registry: [UnsafeMutableRawPointer: HEVCDecoder] = [:]
+
+    private static func register(_ decoder: HEVCDecoder, for key: UnsafeMutableRawPointer) {
+        registryLock.lock()
+        registry[key] = decoder
+        registryLock.unlock()
+    }
+
+    private static func unregister(_ key: UnsafeMutableRawPointer) {
+        registryLock.lock()
+        registry.removeValue(forKey: key)
+        registryLock.unlock()
+    }
+
+    private static let outputCallback: VTDecompressionOutputCallback = { refCon, _, _, imageBuffer in
+        guard let refCon else { return }
+        registryLock.lock()
+        let decoder = registry[refCon]
+        registryLock.unlock()
+        decoder?.handleOutput(pixelBuffer: imageBuffer)
     }
 
     func invalidate() {
         if let session { VTDecompressionSessionInvalidate(session) }
         session = nil
         formatDesc = nil
+        Self.unregister(Unmanaged.passUnretained(self).toOpaque())
     }
 
     // MARK: - Annex-B helpers

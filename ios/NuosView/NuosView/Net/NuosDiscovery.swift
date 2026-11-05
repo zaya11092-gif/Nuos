@@ -137,7 +137,7 @@ extension NuosDiscovery: NetServiceBrowserDelegate {
                            didNotSearch errorDict: [String: NSNumber]) {
         queue.async { [weak self] in
             self?.isBrowsing = false
-            self?.lastError = "browse failed: \(errorDict[NetService.errorCodeKey] ?? -1)"
+            self?.lastError = "browse failed: \(errorDict[NSNetServicesErrorCode] ?? -1)"
         }
     }
 
