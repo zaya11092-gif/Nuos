@@ -56,6 +56,7 @@ final class NuosRenderer: NSObject, MTKViewDelegate {
     init?(mtkView: MTKView) {
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue() else { return nil }
+        super.init()
         self.device = device
         self.queue = queue
 
