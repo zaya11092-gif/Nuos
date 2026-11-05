@@ -3,6 +3,8 @@ name: ios-build
 on:
   workflow_dispatch:
   push:
+    tags:
+      - "v*"
     paths:
       - "ios/**"
       - ".github/workflows/ios.yml"
@@ -57,3 +59,12 @@ jobs:
           name: NuosView-ipa
           path: dist/NuosView.ipa
           if-no-files-found: error
+
+      - name: Attach IPA to release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/NuosView.ipa \
+            --title "NuOS $GITHUB_REF_NAME" \
+            --generate-notes --latest
