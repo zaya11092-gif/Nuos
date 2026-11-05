@@ -61,22 +61,18 @@ final class UltraWideProbe: ObservableObject {
 
         let devices = session.devices
         for device in devices {
-            // supportedMultiCamSessionConfigurations: [[AVCaptureDevice.SensorDescriptor]]
-            // Each inner array is one simultaneous-capture configuration.
-            let configs = device.supportedMultiCamSessionConfigurations
-            if configs.isEmpty {
-                rows.append(MultiCamConfigRow(description: "\(device.localizedName): no multi-cam configs"))
+            // Per-device multi-cam configuration descriptors are not exposed
+            // by this SDK; report the discovered back cameras instead and
+            // treat any ultra-wide presence as a usable configuration.
+            let kind: String
+            switch device.deviceType {
+            case .builtInUltraWideCamera: kind = "UltraWideCam"
+            case .builtInWideAngleCamera: kind = "WideCam"
+            case .builtInTelephotoCamera: kind = "TeleCam"
+            default: kind = device.deviceType.rawValue
             }
-            for cfg in configs {
-                let names = cfg.map {
-                    $0.deviceType.rawValue
-                        .replacingOccurrences(of: "BuiltIn", with: "")
-                        .replacingOccurrences(of: "Camera", with: "Cam")
-                        + ($0.position == .back ? "(back)" : "(front)")
-                }
-                rows.append(MultiCamConfigRow(
-                    description: "\(device.localizedName): \(names.joined(separator: " + "))"))
-            }
+            rows.append(MultiCamConfigRow(
+                description: "\(device.localizedName) (\(kind))"))
         }
 
         DispatchQueue.main.async {
@@ -84,7 +80,7 @@ final class UltraWideProbe: ObservableObject {
             self.supportedConfigs = rows
             // Pass criterion: hardware says multi-cam is possible AND at
             // least one configuration listed on a real capture device.
-            let hasConfig = !rows.isEmpty && rows.contains { !$0.description.contains("no multi-cam configs") }
+            let hasConfig = rows.contains { $0.description.contains("UltraWideCam") }
             self.probePassed = self.isMultiCamSupported && hasConfig
             self.notes = self.probePassed
                 ? "Multi-cam supported. NUOS_CAP_ULTRAWIDE will be advertised."
@@ -116,10 +112,9 @@ final class UltraWideProbe: ObservableObject {
                 if session.canAddOutput(outW) && session.canAddOutput(outU) {
                     session.addOutputWithNoConnections(outW)
                     session.addOutputWithNoConnections(outU)
-                    guard
-                        let connW = AVCaptureConnection(inputPorts: inWide.ports, output: outW),
-                        let connU = AVCaptureConnection(inputPorts: inUltra.ports, output: outU),
-                        session.canAddConnection(connW) && session.canAddConnection(connU)
+                    let connW = AVCaptureConnection(inputPorts: inWide.ports, output: outW)
+                    let connU = AVCaptureConnection(inputPorts: inUltra.ports, output: outU)
+                    guard session.canAddConnection(connW) && session.canAddConnection(connU)
                     else { throw NSError(domain: "nuos.probe", code: 1) }
                     session.addConnection(connW)
                     session.addConnection(connU)

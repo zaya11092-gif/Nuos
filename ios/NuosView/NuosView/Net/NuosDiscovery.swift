@@ -65,7 +65,7 @@ final class NuosDiscovery: NSObject, ObservableObject {
     private func rebuildBoards() {
         boards = services.compactMap { service -> NuosDiscoveredBoard? in
             var txt: [String: String] = [:]
-            if let records = service.TXTRecordData() {
+            if let records = service.txtRecordData() {
                 let dict = NetService.dictionary(fromTXTRecord: records)
                 for (k, v) in dict {
                     if let s = v as? Data { txt[k] = String(data: s, encoding: .utf8) ?? "" }

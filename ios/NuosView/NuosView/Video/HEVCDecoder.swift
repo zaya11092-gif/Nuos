@@ -133,7 +133,7 @@ final class HEVCDecoder {
         let refCon = Unmanaged.passUnretained(self).toOpaque()
         Self.register(self, for: refCon)
         let record = VTDecompressionOutputCallbackRecord(
-            callback: Self.outputCallback,
+            decompressionOutputCallback: Self.outputCallback,
             decompressionOutputRefCon: refCon)
         var sessionOut: VTDecompressionSession?
         let status = VTDecompressionSessionCreate(
