@@ -116,6 +116,13 @@ PACKAGES=(
     firmware-linux-nonfree
     intel-microcode
     intel-media-va-driver-non-free
+    lightdm
+    lightdm-gtk-greeter
+    xfce4
+    xfce4-terminal
+    sudo
+    fonts-dejavu-core
+    dbus-x11
     hostapd
     dnsmasq
     avahi-daemon
@@ -155,6 +162,35 @@ tar -xpf "$WORK/rootfs.tar" -C "$ROOTFS"
 # --- overlay / user artifacts ---------------------------------------------
 echo "==> copying overlay"
 cp -a "$SCRIPT_DIR/overlay/." "$ROOTFS/"
+
+# --- GUI: XFCE autologin on the board panel ---------------------------------
+echo "==> configuring GUI (XFCE autologin)"
+NUOS_PW_HASH=$(openssl passwd -6 nuos)
+mkdir -p "$ROOTFS/home/nuos" "$ROOTFS/etc/lightdm/lightdm.conf.d"          "$ROOTFS/etc/sudoers.d"
+printf 'nuos:x:1000:1000:NuOS User,,,:/home/nuos:/bin/bash
+' >> "$ROOTFS/etc/passwd"
+printf 'nuos:x:1000:
+' >> "$ROOTFS/etc/group"
+printf "nuos:$NUOS_PW_HASH:19000:0:99999:7:::
+" >> "$ROOTFS/etc/shadow"
+printf 'nuos:x:1000:
+' >> "$ROOTFS/etc/gshadow"
+chown -R 1000:1000 "$ROOTFS/home/nuos"
+printf 'nuos ALL=(ALL) NOPASSWD: ALL
+' > "$ROOTFS/etc/sudoers.d/nuos"
+chmod 440 "$ROOTFS/etc/sudoers.d/nuos"
+cat > "$ROOTFS/etc/lightdm/lightdm.conf.d/50-nuos-autologin.conf" <<LDMCONF
+[Seat:*]
+autologin-user=nuos
+autologin-user-timeout=0
+autologin-session=xfce
+user-session=xfce
+LDMCONF
+# PAM group so autologin works without a password prompt
+mkdir -p "$ROOTFS/etc/systemd/system/getty@tty1.service.d"
+rm -f "$ROOTFS/etc/systemd/system/default.target"
+ln -s /lib/systemd/system/graphical.target "$ROOTFS/etc/systemd/system/default.target"
+ln -s /lib/systemd/system/lightdm.service     "$ROOTFS/etc/systemd/system/display-manager.service"
 
 if [ -n "$BINS_DIR" ]; then
     echo "==> copying binaries from $BINS_DIR"
