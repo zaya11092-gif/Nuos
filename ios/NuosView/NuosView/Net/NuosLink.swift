@@ -315,7 +315,8 @@ final class NuosLink {
 
     func sendPose(_ pose: NuosPose, seq: UInt16? = nil) {
         guard let udpSend, udpSend.state == .ready else { return }
-        let s = seq ?? (poseSeq &+= 1)
+        let s: UInt16
+        if let seq { s = seq } else { poseSeq &+= 1; s = poseSeq }
         let hdr = NuosHdr(type: .pose, seq: s, len: UInt16(NuosProto.poseSize))
         var w = NuosWriter()
         hdr.encode(into: &w)
@@ -325,7 +326,8 @@ final class NuosLink {
 
     func sendHands(_ hands: NuosHands, seq: UInt16? = nil) {
         guard let udpSend, udpSend.state == .ready else { return }
-        let s = seq ?? (handsSeq &+= 1)
+        let s: UInt16
+        if let seq { s = seq } else { handsSeq &+= 1; s = handsSeq }
         let hdr = NuosHdr(type: .hands, seq: s, len: UInt16(NuosProto.handsSize))
         var w = NuosWriter()
         hdr.encode(into: &w)
@@ -450,9 +452,9 @@ final class NuosLink {
         // missing and we hold the FEC fragment for that group (PROTOCOL.md 4).
         var recovered: [UInt16: [UInt8]] = [:]
         for missing in pendingMissing {
-            let groupStart = missing - (missing % NuosProto.fecGroup)
+            let groupStart = missing - (missing % UInt16(NuosProto.fecGroup))
             guard let fec = pendingFEC[groupStart] else { continue }
-            let groupEnd = min(Int(groupStart + fec.count), Int(pendingFragCount))
+            let groupEnd = min(Int(groupStart) + Int(fec.count), Int(pendingFragCount))
             let groupMembers = UInt16(groupStart)..<UInt16(groupEnd)
             let missingInGroup = groupMembers.filter { pendingMissing.contains($0) }
             guard missingInGroup == [missing] else { continue }

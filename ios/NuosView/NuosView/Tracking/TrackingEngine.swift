@@ -30,6 +30,8 @@ final class TrackingEngine: NSObject, ObservableObject, ARSessionDelegate {
     var handTracker: HandTracker?
 
     private var poseSeq: UInt16 = 0
+    private var lastCamTransform: simd_float4x4?
+    private var lastCamTime: Double?
     private var lastPoseTime = Date()
     private var poseCount = 0
     private var fpsWindowStart = Date()
@@ -41,7 +43,7 @@ final class TrackingEngine: NSObject, ObservableObject, ARSessionDelegate {
             return
         }
         let config = ARWorldTrackingConfiguration()
-        config.alignment = .gravity
+        config.worldAlignment = .gravity
         // On iPhone 15 the rear ultra-wide is ARKit's second camera when
         // worldTracking uses it internally; we do NOT run a second capture
         // session (see UltraWideProbe notes).
@@ -81,7 +83,7 @@ final class TrackingEngine: NSObject, ObservableObject, ARSessionDelegate {
     func sessionInterruptionEnded(_ session: ARSession) {
         trackingState = "resuming"
         let config = ARWorldTrackingConfiguration()
-        config.alignment = .gravity
+        config.worldAlignment = .gravity
         session.run(config, options: [.resetTracking])
     }
 
@@ -112,12 +114,25 @@ final class TrackingEngine: NSObject, ObservableObject, ARSessionDelegate {
 
         // ARKit transform -> quaternion (w x y z).
         let q = simd_quatf(t)
-        pose.quat = (q.w, q.vector.x, q.vector.y, q.vector.z)
+        pose.quat = (q.vector.w, q.vector.x, q.vector.y, q.vector.z)
 
-        let v = cam.velocity
-        pose.vel = (v.x, v.y, v.z)
-        let av = cam.angularVelocity
-        pose.angVel = (av.x, av.y, av.z)
+        // ARCamera.velocity/angularVelocity are not exposed by this SDK;
+        // estimate both from the previous frame's transform (finite diff).
+        let now = frame.timestamp
+        if let prevT = lastCamTransform, let prevTime = lastCamTime {
+            let dt = Float(now - prevTime)
+            if dt > 0.0001 {
+                let pPrev = simd_make_float3(prevT.columns.3)
+                let vel = (p - pPrev) / dt
+                pose.vel = (vel.x, vel.y, vel.z)
+                let dq = q * simd_quatf(prevT).inverse
+                let angRate = dq.angle / dt
+                let axis = dq.axis
+                pose.angVel = (axis.x * angRate, axis.y * angRate, axis.z * angRate)
+            }
+        }
+        lastCamTransform = t
+        lastCamTime = now
 
         switch cam.trackingState {
         case .normal: pose.tracking = 2

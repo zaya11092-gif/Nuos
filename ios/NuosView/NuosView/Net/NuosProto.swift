@@ -50,16 +50,6 @@ enum NuosProto {
         case stat  = 5
     }
 
-    // Control TLV types (nuos_ctl_type)
-    enum CtlType: UInt8 {
-        case hello    = 1
-        case session  = 2
-        case stop     = 3
-        case ping     = 4
-        case pong     = 5
-        case statReq  = 6
-    }
-
     // Caps (nuos_caps)
     struct Caps: OptionSet {
         let rawValue: UInt32
@@ -269,15 +259,15 @@ struct NuosHands {
 // ---------------------------------------------------------------------------
 
 struct NuosVideo {
-    var tMonoNs: UInt64      // board compose time
-    var frameSeq: UInt32
-    var fragIdx: UInt16      // 0-based
-    var fragCount: UInt16
-    var payloadLen: UInt16   // raw bytes following this struct
-    var flags: UInt8         // bit0: frame contains IDR
-    var reserved: UInt8
-    var renderPos: (Float, Float, Float)
-    var renderQuat: (Float, Float, Float, Float)
+    var tMonoNs: UInt64 = 0          // board compose time
+    var frameSeq: UInt32 = 0
+    var fragIdx: UInt16 = 0          // 0-based
+    var fragCount: UInt16 = 0
+    var payloadLen: UInt16 = 0       // raw bytes following this struct
+    var flags: UInt8 = 0             // bit0: frame contains IDR
+    var reserved: UInt8 = 0
+    var renderPos: (Float, Float, Float) = (0, 0, 0)
+    var renderQuat: (Float, Float, Float, Float) = (0, 0, 0, 0)
 
     static func decode(_ r: inout NuosReader) -> NuosVideo? {
         guard r.remaining >= NuosProto.videoSize else { return nil }
@@ -301,11 +291,11 @@ struct NuosVideo {
 // ---------------------------------------------------------------------------
 
 struct NuosFec {
-    var frameSeq: UInt32
-    var groupStart: UInt16
-    var groupCount: UInt16
-    var payloadLen: UInt16   // length of the XOR recovery payload
-    var reserved: UInt16
+    var frameSeq: UInt32 = 0
+    var groupStart: UInt16 = 0
+    var groupCount: UInt16 = 0
+    var payloadLen: UInt16 = 0   // length of the XOR recovery payload
+    var reserved: UInt16 = 0
 
     static func decode(_ r: inout NuosReader) -> NuosFec? {
         guard r.remaining >= NuosProto.fecSize else { return nil }
@@ -324,7 +314,7 @@ struct NuosFec {
 // nuos_stat_t — 32 bytes
 // ---------------------------------------------------------------------------
 
-struct NuosStat {
+struct NuosStat: Equatable {
     var tMonoNs: UInt64
     var fpsX10: UInt32
     var bitrateKbps: UInt32
@@ -378,6 +368,16 @@ struct NuosStat {
 // ---------------------------------------------------------------------------
 
 enum NuosCtl {
+    /// Control TLV types (nuos_ctl_type)
+    enum CtlType: UInt8 {
+        case hello    = 1
+        case session  = 2
+        case stop     = 3
+        case ping     = 4
+        case pong     = 5
+        case statReq  = 6
+    }
+
     /// Split a byte stream into TLV frames. Returns frames parsed so far and
     /// the number of bytes consumed (remainder is a partial frame).
     static func parseFrames(_ data: [UInt8]) -> (frames: [(type: NuosCtl.CtlType, payload: [UInt8])], consumed: Int) {
@@ -404,10 +404,10 @@ enum NuosCtl {
 
 // nuos_hello_t — 8 bytes
 struct NuosHello {
-    var protoVersion: UInt16
-    var device: UInt8       // 0 = board, 1 = phone
-    var reserved: UInt8
-    var caps: UInt32
+    var protoVersion: UInt16 = 0
+    var device: UInt8 = 0       // 0 = board, 1 = phone
+    var reserved: UInt8 = 0
+    var caps: UInt32 = 0
 
     static let devicePhone: UInt8 = 1
     static let deviceBoard: UInt8 = 0
@@ -436,13 +436,13 @@ struct NuosHello {
 
 // nuos_session_t — 12 bytes
 struct NuosSession {
-    var fps: UInt8          // 30, 60
-    var codec: UInt8        // 0 = HEVC
-    var passthrough: UInt8  // 0 off, 1 on
-    var reserved: UInt8
-    var width: UInt16       // per-eye
-    var height: UInt16      // per-eye
-    var bitrateKbps: UInt32
+    var fps: UInt8 = 0          // 30, 60
+    var codec: UInt8 = 0        // 0 = HEVC
+    var passthrough: UInt8 = 0  // 0 off, 1 on
+    var reserved: UInt8 = 0
+    var width: UInt16 = 0       // per-eye
+    var height: UInt16 = 0      // per-eye
+    var bitrateKbps: UInt32 = 0
 
     func encode() -> [UInt8] {
         var w = NuosWriter()

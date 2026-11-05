@@ -65,7 +65,7 @@ final class NuosDiscovery: NSObject, ObservableObject {
     private func rebuildBoards() {
         boards = services.compactMap { service -> NuosDiscoveredBoard? in
             var txt: [String: String] = [:]
-            if let records = service.TXTRecordData {
+            if let records = service.TXTRecordData() {
                 let dict = NetService.dictionary(fromTXTRecord: records)
                 for (k, v) in dict {
                     if let s = v as? Data { txt[k] = String(data: s, encoding: .utf8) ?? "" }
@@ -137,7 +137,7 @@ extension NuosDiscovery: NetServiceBrowserDelegate {
                            didNotSearch errorDict: [String: NSNumber]) {
         queue.async { [weak self] in
             self?.isBrowsing = false
-            self?.lastError = "browse failed: \(errorDict[NSNetServicesErrorCode] ?? -1)"
+            self?.lastError = "browse failed: \(errorDict[NetService.errorCode] ?? -1)"
         }
     }
 

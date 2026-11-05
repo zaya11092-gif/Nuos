@@ -54,7 +54,7 @@ final class UltraWideProbe: ObservableObject {
             .builtInDualWideCamera,
             .builtInTripleCamera,
         ]
-        let session = AVCaptureDiscoverySession(
+        let session = AVCaptureDevice.DiscoverySession(
             deviceTypes: types,
             mediaType: .video,
             position: .back)
@@ -117,8 +117,8 @@ final class UltraWideProbe: ObservableObject {
                     session.addOutputWithNoConnections(outW)
                     session.addOutputWithNoConnections(outU)
                     guard
-                        let connW = AVCaptureConnection(input: inWide, output: outW),
-                        let connU = AVCaptureConnection(input: inUltra, output: outU),
+                        let connW = AVCaptureConnection(inputPorts: inWide.ports, output: outW),
+                        let connU = AVCaptureConnection(inputPorts: inUltra.ports, output: outU),
                         session.canAddConnection(connW) && session.canAddConnection(connU)
                     else { throw NSError(domain: "nuos.probe", code: 1) }
                     session.addConnection(connW)

@@ -263,9 +263,6 @@ final class NuosRenderer: NSObject, MTKViewDelegate {
         }
     }
 
-    private var videoYTexture: MTLTexture?
-    private var videoCbCrTexture: MTLTexture?
-
     private var yuvCache: CVMetalTextureCache?
     private func ensureTextureCache() -> CVMetalTextureCache? {
         if yuvCache == nil {
@@ -292,7 +289,7 @@ final class NuosRenderer: NSObject, MTKViewDelegate {
     private func currentPoseQuat() -> (Float, Float, Float, Float) {
         guard let frame = trackingEngine?.latestARFrame else { return (1, 0, 0, 0) }
         let q = simd_quatf(frame.camera.transform)
-        return (q.w, q.vector.x, q.vector.y, q.vector.z)
+        return (q.vector.w, q.vector.x, q.vector.y, q.vector.z)
     }
 }
 

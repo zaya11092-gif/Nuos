@@ -116,7 +116,7 @@ final class HEVCDecoder {
         let flags: VTDecodeFrameFlags = [VTDecodeFrameFlags._EnableAsynchronousDecompression,
                                          VTDecodeFrameFlags._1xRealTimePlayback]
         VTDecompressionSessionDecodeFrame(session, sampleBuffer: sb, flags: flags,
-                                          infoFlagsOut: nil) { _, _, _ in }
+                                          infoFlagsOut: nil) { _, _, _, _, _, _ in }
         lastFrameSeq = frameSeq
     }
 
@@ -132,25 +132,33 @@ final class HEVCDecoder {
         // static registry keyed by the refCon pointer we pass at creation.
         let refCon = Unmanaged.passUnretained(self).toOpaque()
         Self.register(self, for: refCon)
+        let record = VTDecompressionOutputCallbackRecord(
+            callback: Self.outputCallback,
+            decompressionOutputRefCon: refCon)
         var sessionOut: VTDecompressionSession?
         let status = VTDecompressionSessionCreate(
             allocator: nil,
             formatDescription: desc,
             decoderSpecification: decoderSpec as CFDictionary,
             imageBufferAttributes: dstAttrs as CFDictionary,
-            outputCallback: Self.outputCallback,
+            outputCallback: &record,
             decompressionSessionOut: &sessionOut)
         guard status == noErr, let s = sessionOut else {
             decodeErrors += 1
             Self.unregister(refCon)
             return
         }
-        // Real-time mode: decode as frames arrive, no reorder buffering.
-        VTSessionSetProperty(s, key: kVTDecompressionPropertyRealTime_Key, value: kCFBooleanTrue)
+        // Low-latency decode is requested per-frame via the
+        // _1xRealTimePlayback flag; no session-level real-time property is
+        // exposed by this SDK.
         session = s
     }
 
-    private func handleOutput(pixelBuffer pb: CVImageBuffer) {
+    private func handleOutput(status: OSStatus, pixelBuffer pb: CVImageBuffer?) {
+        guard status == noErr, let pb else {
+            decodeErrors += 1
+            return
+        }
         decodedCount += 1
         let now = Date()
         let dt = now.timeIntervalSince(fpsWindowStart)
@@ -179,12 +187,13 @@ final class HEVCDecoder {
         registryLock.unlock()
     }
 
-    private static let outputCallback: VTDecompressionOutputCallback = { refCon, _, _, imageBuffer in
+    private static let outputCallback: VTDecompressionOutputCallback =
+        { refCon, _, status, _, imageBuffer, _, _ in
         guard let refCon else { return }
         registryLock.lock()
         let decoder = registry[refCon]
         registryLock.unlock()
-        decoder?.handleOutput(pixelBuffer: imageBuffer)
+        decoder?.handleOutput(status: status, pixelBuffer: imageBuffer)
     }
 
     func invalidate() {

@@ -8,6 +8,7 @@
 
 import Foundation
 import Combine
+import Network
 
 enum SessionState: String, Equatable {
     case idle       // not connected, not searching

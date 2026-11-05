@@ -87,7 +87,9 @@ final class HandTracker {
                     if let p = joints[name], p.confidence > 0.3 {
                         pts[i][0] = Float(p.location.x)
                         pts[i][1] = Float(1.0 - p.location.y) // y down
-                        pts[i][2] = Float(p.z ?? 0)           // depth proxy
+                        // VNRecognizedPoint exposes no depth on this SDK; keep wire [x,y,z]
+                        // format (PROTOCOL.md) with z = 0.
+                        pts[i][2] = 0
                     }
                 }
                 // VNHumanHandPoseObservation does not expose chirality, so
