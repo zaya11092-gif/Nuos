@@ -67,4 +67,5 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" dist/NuosView.ipa \
             --title "NuOS $GITHUB_REF_NAME" \
-            --generate-notes --latest
+            --generate-notes --latest \
+          || gh release upload "$GITHUB_REF_NAME" dist/NuosView.ipa --clobber
