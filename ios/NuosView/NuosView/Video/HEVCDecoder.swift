@@ -132,7 +132,7 @@ final class HEVCDecoder {
         // static registry keyed by the refCon pointer we pass at creation.
         let refCon = Unmanaged.passUnretained(self).toOpaque()
         Self.register(self, for: refCon)
-        let record = VTDecompressionOutputCallbackRecord(
+        var record = VTDecompressionOutputCallbackRecord(
             decompressionOutputCallback: Self.outputCallback,
             decompressionOutputRefCon: refCon)
         var sessionOut: VTDecompressionSession?
