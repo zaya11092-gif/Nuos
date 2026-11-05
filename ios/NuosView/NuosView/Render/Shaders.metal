@@ -10,6 +10,9 @@
 //
 
 #include <metal_stdlib>
+
+using namespace metal;
+constexpr sampler linearSampler(coord::normalized, address::clamp_to_edge, filter::linear);
 using namespace metal;
 
 // Must match Renderer.swift's Uniforms struct layout.
@@ -60,8 +63,8 @@ fragment float4 yuvFragment(float4 ndc [[position]],
                             texture2d<float> cbcrTex [[texture(1)]],
                             constant float &dim [[buffer(0)]]) {
     float2 uv = float2((ndc.x + 1.0) * 0.5, 1.0 - (ndc.y + 1.0) * 0.5);
-    float y = yTex.sample(sampler(linear), uv).r;
-    float2 cbcr = cbcrTex.sample(sampler(linear), uv).rg;
+    float y = yTex.sample(linearSampler, uv).r;
+    float2 cbcr = cbcrTex.sample(linearSampler, uv).rg;
     float3 rgb = yuv2rgb(y, cbcr);
     return float4(rgb * dim, 1.0);
 }
@@ -107,8 +110,8 @@ fragment float4 videoFragment(TimewarpOut in [[stage_in]],
                               texture2d<float> yTex [[texture(0)]],
                               texture2d<float> cbcrTex [[texture(1)]]) {
     if (in.uv.x < 0.0) return float4(0.0, 0.0, 0.0, 1.0);
-    float y = yTex.sample(sampler(linear), in.uv).r;
-    float2 cbcr = cbcrTex.sample(sampler(linear), in.uv).rg;
+    float y = yTex.sample(linearSampler, in.uv).r;
+    float2 cbcr = cbcrTex.sample(linearSampler, in.uv).rg;
     return float4(yuv2rgb(y, cbcr), 1.0);
 }
 
@@ -159,15 +162,15 @@ fragment float4 compositeFragment(CompositeOut in [[stage_in]],
 
     float3 passthroughRGB = float3(0.0);
     if (u.dim > 0.0) {
-        float py = passY.sample(sampler(linear), uv).r;
-        float2 pcb = passCbCr.sample(sampler(linear), uv).rg;
+        float py = passY.sample(linearSampler, uv).r;
+        float2 pcb = passCbCr.sample(linearSampler, uv).rg;
         passthroughRGB = yuv2rgb(py, pcb) * u.dim;
     }
 
     float3 rgb = passthroughRGB;
     if (u.videoOn != 0 && videoY.get_width() > 0) {
-        float vy = videoY.sample(sampler(linear), videoUV).r;
-        float2 vcb = videoCbCr.sample(sampler(linear), videoUV).rg;
+        float vy = videoY.sample(linearSampler, videoUV).r;
+        float2 vcb = videoCbCr.sample(linearSampler, videoUV).rg;
         float3 videoRGB = yuv2rgb(vy, vcb);
         // Video layer replaces the passthrough where it is non-black;
         // (simple additive-free composite; real alpha keying can come later)
