@@ -29,8 +29,8 @@ final class NuosRenderer: NSObject, MTKViewDelegate {
     var decoder: HEVCDecoder?
     var link: NuosLink?
 
-    private let device: MTLDevice
-    private let queue: MTLCommandQueue
+    private var device: MTLDevice!
+    private var queue: MTLCommandQueue!
     private var pipelineYUV: MTLRenderPipelineState?
     private var pipelineVideo: MTLRenderPipelineState?
     private var pipelineComposite: MTLRenderPipelineState?
