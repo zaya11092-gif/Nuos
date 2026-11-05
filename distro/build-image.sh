@@ -120,6 +120,11 @@ PACKAGES=(
     lightdm-gtk-greeter
     xfce4
     xfce4-terminal
+    xserver-xorg
+    xserver-xorg-video-all
+    xserver-xorg-input-all
+    libgl1-mesa-dri
+    x11-xserver-utils
     sudo
     fonts-dejavu-core
     dbus-x11
@@ -179,11 +184,9 @@ chown -R 1000:1000 "$ROOTFS/home/nuos"
 printf 'nuos ALL=(ALL) NOPASSWD: ALL
 ' > "$ROOTFS/etc/sudoers.d/nuos"
 chmod 440 "$ROOTFS/etc/sudoers.d/nuos"
-cat > "$ROOTFS/etc/lightdm/lightdm.conf.d/50-nuos-autologin.conf" <<LDMCONF
+cat > "$ROOTFS/etc/lightdm/lightdm.conf.d/50-nuos-gui.conf" <<LDMCONF
 [Seat:*]
-autologin-user=nuos
-autologin-user-timeout=0
-autologin-session=xfce
+greeter-session=lightdm-gtk-greeter
 user-session=xfce
 LDMCONF
 # PAM group so autologin works without a password prompt
