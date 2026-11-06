@@ -275,7 +275,18 @@ Name=NuOS Installer
 Exec=sudo /usr/local/sbin/nuos-install
 Terminal=true
 DESK
-    chown -R 1000:1000 "$ROOTFS/home/nuos/.config"
+    # Desktop icon too: double-click beats autostart races
+    mkdir -p "$ROOTFS/home/nuos/Desktop"
+    cat > "$ROOTFS/home/nuos/Desktop/nuos-install.desktop" <<DESK2
+[Desktop Entry]
+Type=Application
+Name=Install NuOS
+Exec=sudo /usr/local/sbin/nuos-install
+Terminal=true
+Icon=preferences-system
+Categories=System
+DESK2
+    chown -R 1000:1000 "$ROOTFS/home/nuos/.config" "$ROOTFS/home/nuos/Desktop"
     cat > "$ROOTFS/etc/lightdm/lightdm.conf.d/60-nuos-live-autologin.conf" <<LIVE
 [Seat:*]
 autologin-user=nuos
