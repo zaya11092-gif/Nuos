@@ -375,7 +375,7 @@ dd if="$ESP" of="$OUT" bs=512 seek=2048 conv=notrunc status=none
 # --- rootfs (ext4 via mke2fs -d — no mount) -----------------------------------
 echo "==> populating ext4 root partition"
 echo "DEBUG: passwd NuOS-User count: $(grep -c "NuOS User" "$ROOTFS/etc/passwd" || true)"
-echo "DEBUG: lightdm conf.d: $(ls "$ROOTFS/etc/lightdm/lightdm.conf.d/" 2>&1)"
+echo "DEBUG: sddm conf.d: $(ls "$ROOTFS/etc/sddm.conf.d/" 2>&1)"
 echo "DEBUG: display-manager link: $(readlink "$ROOTFS/etc/systemd/system/display-manager.service" || echo MISSING)"
 echo "DEBUG: xorg present: $(ls "$ROOTFS/usr/lib/xorg/Xorg" 2>&1 | head -1)"
 ROOT_BLOCKS=$((ROOT_SECTORS * 512 / 4096))
