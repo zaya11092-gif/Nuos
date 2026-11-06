@@ -283,6 +283,7 @@ Categories=System
 DESK2
     chmod +x "$ROOTFS/home/nuos/.config/autostart/nuos-installer.desktop" "$ROOTFS/home/nuos/Desktop/nuos-install.desktop"
     chown -R 1000:1000 "$ROOTFS/home/nuos/.config" "$ROOTFS/home/nuos/Desktop"
+    mkdir -p "$ROOTFS/etc/sddm.conf.d"
     cat > "$ROOTFS/etc/sddm.conf.d/nuos-live.conf" <<LIVE
 [Autologin]
 User=nuos
