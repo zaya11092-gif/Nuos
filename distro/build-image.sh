@@ -116,10 +116,10 @@ PACKAGES=(
     firmware-linux-nonfree
     intel-microcode
     intel-media-va-driver-non-free
-    lightdm
-    lightdm-gtk-greeter
-    xfce4
-    xfce4-terminal
+    kde-plasma-desktop
+    sddm
+    sddm-theme-breeze
+    konsole
     xserver-xorg
     xserver-xorg-video-all
     xserver-xorg-input-all
@@ -168,10 +168,10 @@ tar -xpf "$WORK/rootfs.tar" -C "$ROOTFS"
 echo "==> copying overlay"
 cp -a "$SCRIPT_DIR/overlay/." "$ROOTFS/"
 
-# --- GUI: XFCE autologin on the board panel ---------------------------------
-echo "==> configuring GUI (XFCE autologin)"
+# --- GUI: KDE Plasma on the board panel ---------------------------------
+echo "==> configuring GUI (KDE Plasma, SDDM greeter)"
 NUOS_PW_HASH=$(openssl passwd -6 nuos)
-mkdir -p "$ROOTFS/home/nuos" "$ROOTFS/etc/lightdm/lightdm.conf.d"          "$ROOTFS/etc/sudoers.d"
+mkdir -p "$ROOTFS/home/nuos" "$ROOTFS/etc/sudoers.d"
 printf 'nuos:x:1000:1000:NuOS User,,,:/home/nuos:/bin/bash
 ' >> "$ROOTFS/etc/passwd"
 printf 'nuos:x:1000:
@@ -184,16 +184,11 @@ chown -R 1000:1000 "$ROOTFS/home/nuos"
 printf 'nuos ALL=(ALL) NOPASSWD: ALL
 ' > "$ROOTFS/etc/sudoers.d/nuos"
 chmod 440 "$ROOTFS/etc/sudoers.d/nuos"
-cat > "$ROOTFS/etc/lightdm/lightdm.conf.d/50-nuos-gui.conf" <<LDMCONF
-[Seat:*]
-greeter-session=lightdm-gtk-greeter
-user-session=xfce
-LDMCONF
 # PAM group so autologin works without a password prompt
 mkdir -p "$ROOTFS/etc/systemd/system/getty@tty1.service.d"
 rm -f "$ROOTFS/etc/systemd/system/default.target"
 ln -s /lib/systemd/system/graphical.target "$ROOTFS/etc/systemd/system/default.target"
-ln -sfn /lib/systemd/system/lightdm.service "$ROOTFS/etc/systemd/system/display-manager.service"
+ln -sfn /lib/systemd/system/sddm.service "$ROOTFS/etc/systemd/system/display-manager.service"
 
 if [ -n "$BINS_DIR" ]; then
     echo "==> copying binaries from $BINS_DIR"
@@ -265,15 +260,15 @@ FULL_CMDLINE="$BASE_CMDLINE ${CMDLINE_EXTRA:-}"
 if [ -n "$ISO_OUT" ]; then
     echo "==> building installer ISO $ISO_OUT"
     cp -a "$SCRIPT_DIR/overlay-installer/." "$ROOTFS/"
-    # Live session is graphical: autologin to XFCE, installer opens in a
+    # Live session is graphical: autologin to Plasma, installer opens in a
     # terminal window (a tty1 service would fight X for the console).
     mkdir -p "$ROOTFS/home/nuos/.config/autostart"
     cat > "$ROOTFS/home/nuos/.config/autostart/nuos-installer.desktop" <<DESK
 [Desktop Entry]
 Type=Application
 Name=NuOS Installer
-Exec=sudo /usr/local/sbin/nuos-install
-Terminal=true
+Exec=konsole -e sudo /usr/local/sbin/nuos-install
+Terminal=false
 DESK
     # Desktop icon too: double-click beats autostart races
     mkdir -p "$ROOTFS/home/nuos/Desktop"
@@ -281,17 +276,17 @@ DESK
 [Desktop Entry]
 Type=Application
 Name=Install NuOS
-Exec=sudo /usr/local/sbin/nuos-install
-Terminal=true
+Exec=konsole -e sudo /usr/local/sbin/nuos-install
+Terminal=false
 Icon=preferences-system
 Categories=System
 DESK2
+    chmod +x "$ROOTFS/home/nuos/.config/autostart/nuos-installer.desktop" "$ROOTFS/home/nuos/Desktop/nuos-install.desktop"
     chown -R 1000:1000 "$ROOTFS/home/nuos/.config" "$ROOTFS/home/nuos/Desktop"
-    cat > "$ROOTFS/etc/lightdm/lightdm.conf.d/60-nuos-live-autologin.conf" <<LIVE
-[Seat:*]
-autologin-user=nuos
-autologin-user-timeout=0
-autologin-session=xfce
+    cat > "$ROOTFS/etc/sddm.conf.d/nuos-live.conf" <<LIVE
+[Autologin]
+User=nuos
+Session=plasma
 LIVE
     touch "$ROOTFS/.live-installer"
     # live system must not try to mount the raw-image fstab PARTUUIDs
