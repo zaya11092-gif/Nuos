@@ -77,6 +77,10 @@ func send_frame(img: Image) -> bool:
 		_tcp.connect_to_host(FRAME_HOST, FRAME_PORT)
 		_tcp.poll()
 		_connected = _tcp.get_status() == StreamPeerTCP.STATUS_CONNECTED
+		var f2 := FileAccess.open("/tmp/xrhome-dbg.log", FileAccess.READ_WRITE)
+		if f2:
+			f2.seek_end()
+			f2.store_line("connect attempt status=" + str(_tcp.get_status()))
 		if not _connected:
 			if not _warned_frame:
 				_warned_frame = true
@@ -85,6 +89,10 @@ func send_frame(img: Image) -> bool:
 		_warned_frame = false
 	if _tcp.get_status() != StreamPeerTCP.STATUS_CONNECTED:
 		_connected = false
+		var f := FileAccess.open("/tmp/xrhome-dbg.log", FileAccess.READ_WRITE)
+		if f:
+			f.seek_end()
+			f.store_line("send_frame: tcp status=" + str(_tcp.get_status()))
 		return false
 	var data := img.get_data()
 	var n := data.size()

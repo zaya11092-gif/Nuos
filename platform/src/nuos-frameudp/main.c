@@ -79,8 +79,7 @@ static void handle_client(int cfd) {
         if (le_ok) { w = wle; h = hle; len = lle; }
         else if (be_ok) { w = wbe; h = hbe; len = lbe; }
         else {
-            fprintf(stderr, "frameudp: bad frame header %u/%u/%u
-", wle, hle, lle);
+            fprintf(stderr, "frameudp: bad frame header %u/%u/%u\n", wle, hle, lle);
             return;
         }
         uint32_t slot_i = slot++ % NUOS_RING_SLOTS;

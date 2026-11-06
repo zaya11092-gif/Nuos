@@ -193,6 +193,10 @@ func _push_latest_frame() -> void:
 		return
 	if not _push_warned:
 		_push_warned = true
+		var f3 := FileAccess.open("/tmp/xrhome-dbg.log", FileAccess.READ_WRITE)
+		if f3:
+			f3.seek_end()
+			f3.store_line("push alive %dx%d" % [img.get_width(), img.get_height()])
 		print("[xr-home] push path alive, img=%dx%d bridge=%s" % [img.get_width(), img.get_height(), str(nuos_client.call("get_bridge") != null)])
 	var bridge: Node = nuos_client.call("get_bridge")
 	if bridge != null:
