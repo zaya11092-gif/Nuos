@@ -272,8 +272,8 @@ if [ -n "$ISO_OUT" ]; then
 [Desktop Entry]
 Type=Application
 Name=NuOS Installer
-Exec=xfce4-terminal -x sudo /usr/local/sbin/nuos-install
-Terminal=false
+Exec=sudo /usr/local/sbin/nuos-install
+Terminal=true
 DESK
     chown -R 1000:1000 "$ROOTFS/home/nuos/.config"
     cat > "$ROOTFS/etc/lightdm/lightdm.conf.d/60-nuos-live-autologin.conf" <<LIVE
