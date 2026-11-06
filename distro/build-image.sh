@@ -187,6 +187,8 @@ chmod 440 "$ROOTFS/etc/sudoers.d/nuos"
 # PAM group so autologin works without a password prompt
 mkdir -p "$ROOTFS/etc/systemd/system/getty@tty1.service.d"
 rm -f "$ROOTFS/etc/systemd/system/default.target"
+printf "PLASMA_USE_SOFTWARE_RENDERING=1
+" >> "$ROOTFS/etc/environment"
 ln -s /lib/systemd/system/graphical.target "$ROOTFS/etc/systemd/system/default.target"
 ln -sfn /lib/systemd/system/sddm.service "$ROOTFS/etc/systemd/system/display-manager.service"
 
