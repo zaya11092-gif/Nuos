@@ -74,7 +74,7 @@ INFO_PID=$!
 tar -cf - --one-file-system \
     --exclude=./proc --exclude=./sys --exclude=./dev --exclude=./run \
     --exclude=./tmp --exclude=./mnt --exclude=./media \
-    --exclude=./.live-installer --exclude=./etc/nuos/installer.env --exclude=./init \
+    --exclude=./.live-installer --exclude=./etc/nuos/installer.env --exclude=./init --exclude=./home/nuos/.config/autostart \n    --exclude=./etc/lightdm/lightdm.conf.d/60-nuos-live-autologin.conf \
     . | (cd "$MNT" && tar -xf -)
 kill $INFO_PID 2>/dev/null
 [ -d "$MNT/usr/bin" ] || { umount "$MNT"; fail "system copy failed"; }

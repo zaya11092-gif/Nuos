@@ -42,7 +42,7 @@ qemu-system-x86_64 \
 QEMU_PID=$!
 echo "$QEMU_PID" > "$PIDFILE"
 
-TIMEOUT=180
+TIMEOUT="${SMOKE_TIMEOUT:-180}"
 echo "==> waiting up to ${TIMEOUT}s for NUOS_BOOT_OK"
 ELAPSED=0
 RESULT=""

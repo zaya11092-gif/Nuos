@@ -193,7 +193,7 @@ LDMCONF
 mkdir -p "$ROOTFS/etc/systemd/system/getty@tty1.service.d"
 rm -f "$ROOTFS/etc/systemd/system/default.target"
 ln -s /lib/systemd/system/graphical.target "$ROOTFS/etc/systemd/system/default.target"
-ln -s /lib/systemd/system/lightdm.service     "$ROOTFS/etc/systemd/system/display-manager.service"
+ln -sfn /lib/systemd/system/lightdm.service "$ROOTFS/etc/systemd/system/display-manager.service"
 
 if [ -n "$BINS_DIR" ]; then
     echo "==> copying binaries from $BINS_DIR"
@@ -265,8 +265,23 @@ FULL_CMDLINE="$BASE_CMDLINE ${CMDLINE_EXTRA:-}"
 if [ -n "$ISO_OUT" ]; then
     echo "==> building installer ISO $ISO_OUT"
     cp -a "$SCRIPT_DIR/overlay-installer/." "$ROOTFS/"
-    mkdir -p "$ROOTFS/etc/systemd/system/multi-user.target.wants"
-    ln -sf ../nuos-installer.service         "$ROOTFS/etc/systemd/system/multi-user.target.wants/nuos-installer.service"
+    # Live session is graphical: autologin to XFCE, installer opens in a
+    # terminal window (a tty1 service would fight X for the console).
+    mkdir -p "$ROOTFS/home/nuos/.config/autostart"
+    cat > "$ROOTFS/home/nuos/.config/autostart/nuos-installer.desktop" <<DESK
+[Desktop Entry]
+Type=Application
+Name=NuOS Installer
+Exec=xfce4-terminal -x sudo /usr/local/sbin/nuos-install
+Terminal=false
+DESK
+    chown -R 1000:1000 "$ROOTFS/home/nuos/.config"
+    cat > "$ROOTFS/etc/lightdm/lightdm.conf.d/60-nuos-live-autologin.conf" <<LIVE
+[Seat:*]
+autologin-user=nuos
+autologin-user-timeout=0
+autologin-session=xfce
+LIVE
     touch "$ROOTFS/.live-installer"
     # live system must not try to mount the raw-image fstab PARTUUIDs
     printf '# NuOS live installer - no fstab entries
@@ -353,6 +368,10 @@ dd if="$ESP" of="$OUT" bs=512 seek=2048 conv=notrunc status=none
 
 # --- rootfs (ext4 via mke2fs -d — no mount) -----------------------------------
 echo "==> populating ext4 root partition"
+echo "DEBUG: passwd NuOS-User count: $(grep -c "NuOS User" "$ROOTFS/etc/passwd" || true)"
+echo "DEBUG: lightdm conf.d: $(ls "$ROOTFS/etc/lightdm/lightdm.conf.d/" 2>&1)"
+echo "DEBUG: display-manager link: $(readlink "$ROOTFS/etc/systemd/system/display-manager.service" || echo MISSING)"
+echo "DEBUG: xorg present: $(ls "$ROOTFS/usr/lib/xorg/Xorg" 2>&1 | head -1)"
 ROOT_BLOCKS=$((ROOT_SECTORS * 512 / 4096))
 ROOT_START_BYTES=$((526336 * 512))
 mkfs.ext4 -q -F -b 4096 -L nuos-root \
@@ -361,5 +380,10 @@ mkfs.ext4 -q -F -b 4096 -L nuos-root \
     "$OUT" "$ROOT_BLOCKS"
 echo "NOTE: ext4 created without journal (flash-friendliness); add journal on device if desired." >&2
 
+# post-build verification: GUI + overlay must be present in the packed fs
+if ! LC_ALL=C grep -aq "NuOS User" "$OUT"; then
+    echo "ERROR: GUI user missing from packed image (stale/failed build?)" >&2
+    exit 1
+fi
 echo "==> done: $OUT ($(stat -c %s "$OUT") bytes)"
 echo "    cmdline: $FULL_CMDLINE"

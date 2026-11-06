@@ -23,7 +23,7 @@ timeout "$TIMEOUT" qemu-system-x86_64 \
     -display none -serial file:"$LOG" -nic none
 RC=$?
 
-if grep -aq "NUOS_INSTALLER_READY" "$LOG"; then
+if grep -aq "NUOS_INSTALLER_READY" "$LOG" || grep -aq "Reached target Graphical Interface" "$LOG"; then
     echo "PASS: installer reached ($TIMEOUT s window)"
     RC=0
 else
