@@ -22,6 +22,7 @@ const CAM_FOV_DEG: float = 90.0
 
 var xr_active: bool = false
 var nuos_client: Node
+var udp_link: Node
 var home_viewport: SubViewport
 var home_root: Node3D
 var camera: Camera3D
@@ -38,6 +39,10 @@ func _ready() -> void:
 	nuos_client.name = "NuosClient"
 	nuos_client.set_script(load("res://scripts/nuos_client.gd"))
 	add_child(nuos_client)
+	udp_link = Node.new()
+	udp_link.name = "UdpLink"
+	udp_link.set_script(load("res://scripts/udp_link.gd"))
+	add_child(udp_link)
 	_init_xr()
 	_build_world()
 
@@ -117,8 +122,10 @@ func _process(delta: float) -> void:
 
 
 func _update_camera(delta: float) -> void:
-	if xr_active:
-		var pose: Dictionary = nuos_client.call("get_head_pose")
+	if true:
+		# Real head pose comes from the tracker's localhost state stream
+		# (ARKit+Kiyo fusion) whether or not OpenXR is active.
+		var pose: Dictionary = udp_link.call("get_head_pose")
 		var tracking: int = int(pose.get("tracking", 0))
 		if tracking > 0:
 			camera.quaternion = pose.get("quat", Quaternion())
@@ -176,6 +183,8 @@ func _push_latest_frame() -> void:
 	var bridge: Node = nuos_client.call("get_bridge")
 	if bridge != null:
 		bridge.call("push_frame", img)
+	else:
+		udp_link.call("send_frame", img)
 
 
 func _on_app_launched(app: Dictionary) -> void:

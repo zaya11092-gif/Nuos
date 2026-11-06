@@ -55,6 +55,13 @@ add_executable(nuos-stream
 target_link_libraries(nuos-stream PRIVATE va va-drm drm swscale avutil ${NUOS_COMMON_LIBS})
 
 # ---------------------------------------------------------------- nuos-handbus
+add_executable(nuos-frameudp
+  src/nuos-frameudp/main.c
+  include/nuos_ring.h
+)
+target_include_directories(nuos-frameudp PRIVATE include)
+target_link_libraries(nuos-frameudp PRIVATE rt Threads::Threads)
+
 add_executable(nuos-handbus
   src/nuos-handbus/main.cpp
   src/nuos-handbus/hands_shm.cpp
