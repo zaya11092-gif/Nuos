@@ -64,12 +64,23 @@ static void handle_client(int cfd) {
     uint32_t w, h, len;
     static uint32_t slot = 0;
     for (;;) {
-        if (read_full(cfd, &w, 4) || read_full(cfd, &h, 4) || read_full(cfd, &len, 4))
+        uint8_t hb[12];
+        if (read_full(cfd, hb, 12))
             return;
-        w = ntohl(w); h = ntohl(h); len = ntohl(len);
-        if (w == 0 || h == 0 || w > NUOS_RING_MAX_W || h > NUOS_RING_MAX_H ||
-            len != w * h * 4) {
-            fprintf(stderr, "frameudp: bad frame %ux%u len %u\n", w, h, len);
+        /* Accept little-endian or big-endian headers. */
+        uint32_t wle = (uint32_t)hb[0] | ((uint32_t)hb[1] << 8) | ((uint32_t)hb[2] << 16) | ((uint32_t)hb[3] << 24);
+        uint32_t hle = (uint32_t)hb[4] | ((uint32_t)hb[5] << 8) | ((uint32_t)hb[6] << 16) | ((uint32_t)hb[7] << 24);
+        uint32_t lle = (uint32_t)hb[8] | ((uint32_t)hb[9] << 8) | ((uint32_t)hb[10] << 16) | ((uint32_t)hb[11] << 24);
+        uint32_t wbe = __builtin_bswap32(wle);
+        uint32_t hbe = __builtin_bswap32(hle);
+        uint32_t lbe = __builtin_bswap32(lle);
+        int le_ok = wle && hle && wle <= NUOS_RING_MAX_W && hle <= NUOS_RING_MAX_H && lle == wle * hle * 4;
+        int be_ok = wbe && hbe && wbe <= NUOS_RING_MAX_W && hbe <= NUOS_RING_MAX_H && lbe == wbe * hbe * 4;
+        if (le_ok) { w = wle; h = hle; len = lle; }
+        else if (be_ok) { w = wbe; h = hbe; len = lbe; }
+        else {
+            fprintf(stderr, "frameudp: bad frame header %u/%u/%u
+", wle, hle, lle);
             return;
         }
         uint32_t slot_i = slot++ % NUOS_RING_SLOTS;

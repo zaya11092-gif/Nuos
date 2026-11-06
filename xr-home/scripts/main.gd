@@ -32,6 +32,7 @@ var pointer: Node
 var _flat_time: float = 0.0
 var _push_accum: float = 0.0
 var _push_busy: bool = false
+var _push_warned: bool = false
 
 
 func _ready() -> void:
@@ -106,9 +107,8 @@ func _build_world() -> void:
 		var container := SubViewportContainer.new()
 		container.stretch = true
 		container.set_anchors_preset(Control.PRESET_FULL_RECT)
-		container.add_child(home_viewport)
 		layer.add_child(container)
-		# home_viewport was reparented into the container above; keep camera fine.
+		home_viewport.reparent(container)
 
 
 func _process(delta: float) -> void:
@@ -158,7 +158,16 @@ func _frustum_offset_px(eye_sign: int) -> Vector2:
 
 func _capture_frame() -> Image:
 	if not xr_active:
-		return home_viewport.get_texture().get_image()
+		# Flat mode still streams proper SBS: duplicate the eye image.
+		var eye: Image = home_viewport.get_texture().get_image()
+		if eye == null or eye.get_width() != EYE_WIDTH or eye.get_height() != EYE_HEIGHT:
+			return eye
+		if eye.get_format() != Image.FORMAT_RGBA8:
+			eye.convert(Image.FORMAT_RGBA8)
+		var combined := Image.create(EYE_WIDTH * 2, EYE_HEIGHT, false, Image.FORMAT_RGBA8)
+		combined.blit_rect(eye, Rect2i(0, 0, EYE_WIDTH, EYE_HEIGHT), Vector2i(0, 0))
+		combined.blit_rect(eye, Rect2i(0, 0, EYE_WIDTH, EYE_HEIGHT), Vector2i(EYE_WIDTH, 0))
+		return combined
 	# SBS: two UPDATE_ONCE passes into the same SubViewport.
 	var combined: Image = Image.create(EYE_WIDTH * 2, EYE_HEIGHT, false, Image.FORMAT_RGBA8)
 	for eye in 2:
@@ -177,9 +186,14 @@ func _push_latest_frame() -> void:
 	var img: Image = await _capture_frame()
 	_push_busy = false
 	if img == null:
+		print("[xr-home] capture returned null")
 		return
 	if img.get_width() > 2560 or img.get_height() > 800:
+		print("[xr-home] capture oversized: %dx%d" % [img.get_width(), img.get_height()])
 		return
+	if not _push_warned:
+		_push_warned = true
+		print("[xr-home] push path alive, img=%dx%d bridge=%s" % [img.get_width(), img.get_height(), str(nuos_client.call("get_bridge") != null)])
 	var bridge: Node = nuos_client.call("get_bridge")
 	if bridge != null:
 		bridge.call("push_frame", img)

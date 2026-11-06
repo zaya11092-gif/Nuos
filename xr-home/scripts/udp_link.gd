@@ -73,6 +73,7 @@ func send_frame(img: Image) -> bool:
 		return false
 	if not _connected:
 		_tcp = StreamPeerTCP.new()
+		_tcp.big_endian = false  # wire format is little-endian (nuos_proto.h)
 		_tcp.connect_to_host(FRAME_HOST, FRAME_PORT)
 		_tcp.poll()
 		_connected = _tcp.get_status() == StreamPeerTCP.STATUS_CONNECTED
@@ -82,11 +83,17 @@ func send_frame(img: Image) -> bool:
 				push_warning("[udp_link] frame bridge (frameudp :48200) not reachable")
 			return false
 		_warned_frame = false
+	if _tcp.get_status() != StreamPeerTCP.STATUS_CONNECTED:
+		_connected = false
+		return false
 	var data := img.get_data()
 	var n := data.size()
-	_tcp.put_u32(img.get_width())
-	_tcp.put_u32(img.get_height())
-	_tcp.put_u32(n)
+	var hdr := PackedByteArray()
+	hdr.resize(12)
+	hdr.encode_u32(0, img.get_width())   # encode_u32 is always little-endian
+	hdr.encode_u32(4, img.get_height())
+	hdr.encode_u32(8, n)
+	_tcp.put_data(hdr)
 	_tcp.put_data(data)
 	_tcp.poll()
 	if _tcp.get_status() != StreamPeerTCP.STATUS_CONNECTED:
