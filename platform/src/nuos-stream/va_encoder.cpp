@@ -129,6 +129,7 @@ bool VaEncoder::init(const EncoderConfig& cfg, std::string* err) {
     impl_->hw_frame->format = AV_PIX_FMT_VAAPI;
     impl_->hw_frame->width = cfg_.width;
     impl_->hw_frame->height = cfg_.height;
+    impl_->hw_frame->hw_frames_ctx = av_buffer_ref(impl_->hw_frames);
     impl_->pkt = av_packet_alloc();
 
     ready_ = true;
