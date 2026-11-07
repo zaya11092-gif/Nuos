@@ -159,8 +159,17 @@ int main(int argc, char** argv) {
 
         EncodedFrame ef;
         if (!enc.encode_bgra(view.data, (int)view.stride, ef) || ef.data.empty()) {
+            static int nfails = 0;
+            if ((nfails++ & 31) == 0)
+                fprintf(stderr, "nuos-stream: encode_bgra failed (frame %d)
+", nfails);
             std::this_thread::sleep_until(next);
             continue;
+        }
+        if (nfails > 0 && ef.data.size() > 0) {
+            fprintf(stderr, "nuos-stream: encode RECOVERED, au=%zu bytes
+", ef.data.size());
+            nfails = 0;
         }
 
         float rpos[3] = {0,0,0}, rquat[4] = {1,0,0,0};

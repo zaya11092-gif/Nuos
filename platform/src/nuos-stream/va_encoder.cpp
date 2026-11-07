@@ -139,6 +139,10 @@ bool VaEncoder::init(const EncoderConfig& cfg, std::string* err) {
     return true;
 }
 
+void VaEncoder::set_bitrate_kbps(uint32_t) { /* codec config fixed at open */ }
+void VaEncoder::set_fps(uint32_t) { /* codec config fixed at open */ }
+void VaEncoder::force_idr() { if (impl_) impl_->force_idr_ = true; }
+
 bool VaEncoder::encode_bgra(const uint8_t* bgra, int stride, EncodedFrame& out) {
     out.data.clear();
     out.idr = false;
@@ -153,22 +157,35 @@ bool VaEncoder::encode_bgra(const uint8_t* bgra, int stride, EncodedFrame& out) 
     sws_scale(impl_->sws, src_slice, src_stride, 0, cfg_.height,
               dst_slice, dst_stride);
 
-    if (av_frame_get_buffer(impl_->sw_frame, 0) < 0) return false;
+    // Point the frame at our staging buffer (no per-frame allocation).
     if (av_image_fill_arrays(impl_->sw_frame->data, impl_->sw_frame->linesize,
                              impl_->nv12, AV_PIX_FMT_NV12, cfg_.width,
                              cfg_.height, 1) < 0)
         return false;
 
-    if (impl_->force_idr_.exchange(false))
-        impl_->sw_frame->pict_type = AV_PICTURE_TYPE_I;
+    const bool want_idr = impl_->force_idr_.exchange(false);
+    if (want_idr) impl_->sw_frame->pict_type = AV_PICTURE_TYPE_I;
 
     if (av_frame_make_writable(impl_->hw_frame) < 0) return false;
-    if (av_hwframe_transfer_data(impl_->hw_frame, impl_->sw_frame, 0) < 0)
+    int tr = av_hwframe_transfer_data(impl_->hw_frame, impl_->sw_frame, 0);
+    if (tr < 0) {
+        char buf[AV_ERROR_MAX_STRING_SIZE] = {0};
+        av_strerror(tr, buf, sizeof buf);
+        if ((impl_->frame_num & 63) == 0)
+            fprintf(stderr, "nuos-stream: hw upload failed: %s\n", buf);
         return false;
+    }
     impl_->hw_frame->pict_type = impl_->sw_frame->pict_type;
     impl_->hw_frame->pts = (int64_t)impl_->frame_num++;
 
-    if (avcodec_send_frame(impl_->ctx, impl_->hw_frame) < 0) return false;
+    int sf = avcodec_send_frame(impl_->ctx, impl_->hw_frame);
+    if (sf < 0) {
+        char buf[AV_ERROR_MAX_STRING_SIZE] = {0};
+        av_strerror(sf, buf, sizeof buf);
+        if ((impl_->frame_num & 63) == 0)
+            fprintf(stderr, "nuos-stream: send_frame failed: %s\n", buf);
+        return false;
+    }
     bool got = false;
     while (avcodec_receive_packet(impl_->ctx, impl_->pkt) == 0) {
         out.data.assign(impl_->pkt->data, impl_->pkt->data + impl_->pkt->size);
