@@ -52,7 +52,7 @@ add_executable(nuos-stream
   src/nuos-stream/udp_send.cpp
   src/nuos-stream/control_server.cpp
 )
-target_link_libraries(nuos-stream PRIVATE va va-drm drm swscale avutil ${NUOS_COMMON_LIBS})
+target_link_libraries(nuos-stream PRIVATE avcodec va drm swscale avutil ${NUOS_COMMON_LIBS})
 
 # ---------------------------------------------------------------- nuos-handbus
 add_executable(nuos-frameudp

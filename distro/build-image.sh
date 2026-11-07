@@ -74,13 +74,14 @@ pick() {
 
 # trixie ships ffmpeg 7.x -> libavutil60/libswscale9; fall back for safety.
 FF=$(pick libswscale9 libswscale8) || FF=
+AC=$(pick libavcodec61 libavcodec60) || AC=
 AV=$(pick libavutil60 libavutil59) || AV=
 # trixie OpenCV 4.x runtime; soname-suffixed core/imgproc packages.
 OC=$(pick libopencv-core406t libopencv-core410 libopencv-core412 libopencv-core413) || OC=
 OI=$(pick libopencv-imgproc406t libopencv-imgproc410 libopencv-imgproc412 libopencv-imgproc413) || OI=
 
 PKGS="iproute2"
-for p in "$FF" "$AV" "$OC" "$OI"; do
+for p in "$FF" "$AV" "$AC" "$OC" "$OI"; do
     [ -n "$p" ] && PKGS="$PKGS $p"
 done
 echo "nuos: installing extra packages:$PKGS"

@@ -18,7 +18,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential cmake ninja-build pkg-config \
-            libopencv-dev libva-dev libdrm-dev libswscale-dev libavutil-dev
+            libopencv-dev libva-dev libdrm-dev libswscale-dev libavcodec-dev libavutil-dev
 
       - name: Configure
         run: cmake -S platform -B platform/build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
