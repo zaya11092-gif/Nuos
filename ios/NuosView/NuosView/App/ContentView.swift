@@ -9,9 +9,10 @@
 import ARKit
 import MetalKit
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
-    @State private var manualIP: String = ""
+    @AppStorage("lastBoardIP") private var manualIP: String = ""
     @EnvironmentObject var sessionModel: SessionModel
     @State private var showDiagnostics = false
     @State private var showStream = false
@@ -24,6 +25,10 @@ struct ContentView: View {
             case .streaming:
                 streamingView
             }
+        }
+        .onChange(of: sessionModel.state) { newState in
+            // Keep the screen awake while streaming into the headset.
+            UIApplication.shared.isIdleTimerDisabled = (newState == .streaming)
         }
         .navigationViewStyle(.stack)
     }

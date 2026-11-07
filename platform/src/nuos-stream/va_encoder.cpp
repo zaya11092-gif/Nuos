@@ -217,7 +217,7 @@ bool VaEncoder::encode_nv12(const uint8_t* y, const uint8_t* uv, int y_stride,
         for (int r = 0; r < cfg_.height; ++r)
             memcpy(base + (size_t)r * img.pitches[0], y + (size_t)r * y_stride,
                    cfg_.width);
-        uint8_t* cbase = base + (size_t)img.pitches[0] * (img.height > 0 ? cfg_.height : cfg_.height);
+        uint8_t* cbase = base + (size_t)img.offsets[1];
         for (int r = 0; r < cfg_.height / 2; ++r)
             memcpy(cbase + (size_t)r * img.pitches[1], uv + (size_t)r * uv_stride,
                    cfg_.width);

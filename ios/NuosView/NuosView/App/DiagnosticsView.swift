@@ -13,6 +13,7 @@ import SwiftUI
 
 struct DiagnosticsView: View {
     @EnvironmentObject var sessionModel: SessionModel
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var probe = UltraWideProbe.shared
     @State private var thermalState = ProcessInfo.processInfo.thermalState
     @State private var thermalTimer: Timer?
@@ -27,6 +28,11 @@ struct DiagnosticsView: View {
                 sectionPowerThermal
                 sectionToggles
                 sectionDistortion
+            }
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Back") { dismiss() }
+                }
             }
             .navigationTitle("Diagnostics")
             .onAppear {
