@@ -170,6 +170,7 @@ struct StreamView: UIViewRepresentable {
         let trackingEngine = TrackingEngine()
         let handTracker = HandTracker()
         let decoder = HEVCDecoder()
+        sessionModel.decoder = decoder
         private var sessionStarted = false
 
         init(sessionModel: SessionModel) {

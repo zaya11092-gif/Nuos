@@ -16,13 +16,13 @@ final class HEVCDecoder {
     var onDecodedFrame: ((CVPixelBuffer) -> Void)?
 
     private(set) var decodeErrors: Int = 0
+    private(set) var decodedCount: Int = 0
     private(set) var decodedFps: Double = 0
 
     private var session: VTDecompressionSession?
     private var formatDesc: CMVideoFormatDescription?
     private var lastFrameSeq: UInt32?
 
-    private var decodedCount = 0
     private var fpsWindowStart = Date()
 
     // MARK: - Format description from VPS/SPS/PPS

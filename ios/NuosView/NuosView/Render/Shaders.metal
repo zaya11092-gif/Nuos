@@ -160,8 +160,10 @@ fragment float4 compositeFragment(CompositeOut in [[stage_in]],
     float eyeX = (in.eye < 0.5) ? 0.0 : halfW;          // left half or right half
     float2 videoUV = float2(eyeX + uv.x * halfW, uv.y);
 
-    float3 passthroughRGB = float3(0.0);
-    if (u.dim > 0.0) {
+    float3 passthroughRGB = float3(0.015, 0.015, 0.025);  // dark backdrop
+    // Guard: sampling a missing (nil-bound) texture returns zeros, and
+    // yuv2rgb(0, 0, 0) is GREEN — never sample unless the texture exists.
+    if (u.dim > 0.0 && passY.get_width() > 0) {
         float py = passY.sample(linearSampler, uv).r;
         float2 pcb = passCbCr.sample(linearSampler, uv).rg;
         passthroughRGB = yuv2rgb(py, pcb) * u.dim;

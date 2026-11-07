@@ -38,6 +38,7 @@ final class SessionModel: ObservableObject {
     private var wantConnected = false
 
     let link = NuosLink()
+    weak var decoder: HEVCDecoder?
     let discovery = NuosDiscovery()
     /// Live tracking pipeline while streaming (set by StreamView).
     weak var trackingEngine: TrackingEngine?

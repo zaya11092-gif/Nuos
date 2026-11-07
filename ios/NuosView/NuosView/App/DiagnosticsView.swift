@@ -100,6 +100,12 @@ struct DiagnosticsView: View {
             LabeledRow("FEC recovered", "\(sessionModel.stats.fecRecovered)")
             LabeledRow("datagrams lost (est.)", "\(sessionModel.stats.datagramsLost)")
             LabeledRow("video rx bytes", "\(sessionModel.stats.udpRxVideoBytes)")
+            if let dec = sessionModel.decoder {
+                LabeledRow("frames decoded", "\(dec.decodedCount)")
+                LabeledRow("decode errors", "\(dec.decodeErrors)")
+            } else {
+                LabeledRow("decoder", "not created")
+            }
         }
     }
 
