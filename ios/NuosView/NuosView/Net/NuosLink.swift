@@ -513,7 +513,9 @@ final class NuosLink {
         lastAssembledSeq = frame.frameSeq
 
         jitterBuffer.append(frame)
-        // Keep at most `jitterDepth` (2) frames; older ones are stale.
+        // Keep at most `jitterDepth` (2) frames for timewarp reference, but
+        // the DECODER must see every frame in order (HEVC references!).
+        onVideoFrame?(frame)
         while jitterBuffer.count > jitterDepth {
             jitterBuffer.removeFirst()
             stats.framesDroppedStale &+= 1

@@ -112,6 +112,7 @@ bool VaEncoder::init(const EncoderConfig& cfg, std::string* err) {
     fctx->sw_format = AV_PIX_FMT_NV12;
     fctx->width = cfg_.width;
     fctx->height = cfg_.height;
+    fctx->initial_pool_size = 20;
     if (cons) av_hwframe_constraints_free(&cons);
     if (av_hwframe_ctx_init(impl_->hw_frames) < 0) {
         if (err) *err = "hw frames ctx init failed";
@@ -132,7 +133,6 @@ bool VaEncoder::init(const EncoderConfig& cfg, std::string* err) {
     impl_->hw_frame->format = AV_PIX_FMT_VAAPI;
     impl_->hw_frame->width = cfg_.width;
     impl_->hw_frame->height = cfg_.height;
-    impl_->hw_frame->hw_frames_ctx = av_buffer_ref(impl_->hw_frames);
     impl_->pkt = av_packet_alloc();
 
     ready_ = true;
@@ -168,6 +168,17 @@ bool VaEncoder::encode_bgra(const uint8_t* bgra, int stride, EncodedFrame& out) 
     const bool want_idr = impl_->force_idr_.exchange(false);
     if (want_idr) impl_->sw_frame->pict_type = AV_PICTURE_TYPE_I;
 
+    // iHD requires the dst surface from the pool (get_buffer); a
+    // hand-referenced dst fails with EINVAL (probe-proven on board).
+    av_frame_unref(impl_->hw_frame);
+    impl_->hw_frame->format = AV_PIX_FMT_VAAPI;
+    impl_->hw_frame->width = cfg_.width;
+    impl_->hw_frame->height = cfg_.height;
+    if (av_hwframe_get_buffer(impl_->hw_frames, impl_->hw_frame, 0) < 0) {
+        fprintf(stderr, "nuos-stream: hw get_buffer failed");
+        fputc(10, stderr);
+        return false;
+    }
     int tr = av_hwframe_transfer_data(impl_->hw_frame, impl_->sw_frame, 0);
     if (tr < 0) {
         char buf[AV_ERROR_MAX_STRING_SIZE] = {0};

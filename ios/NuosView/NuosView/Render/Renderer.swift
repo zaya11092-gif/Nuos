@@ -222,7 +222,7 @@ final class NuosRenderer: NSObject, MTKViewDelegate {
             }
             var uniforms = Uniforms(warpQuat: warp, k1: distortionK1, k2: distortionK2,
                                     dim: passthroughEnabled ? 0.35 : 0.0,
-                                    videoOn: videoEnabled ? 1 : 0,
+                                    videoOn: (videoEnabled && videoYTexture != nil && videoCbCrTexture != nil) ? 1 : 0,
                                     pad0: 0, pad1: 0, pad2: 0)
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.setFragmentBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 0)
