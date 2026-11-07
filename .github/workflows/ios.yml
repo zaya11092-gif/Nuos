@@ -3,11 +3,13 @@ name: ios-build
 on:
   workflow_dispatch:
   push:
-    tags:
-      - "v*"
+    branches:
+      - master
     paths:
       - "ios/**"
       - ".github/workflows/ios.yml"
+    tags:
+      - "v*"
 
 jobs:
   build:
