@@ -177,6 +177,18 @@ int main(int argc, char** argv) {
         uint8_t tracking = 0;
         read_render_pose(rpos, rquat, pt_ns, tracking);
 
+        // Env-gated bitstream dump (first 30 AUs) for offline decode.
+        if (const char* dump_path = getenv("NUOS_DUMP")) {
+            static FILE* df = fopen(dump_path, "wb");
+            static unsigned dumped = 0;
+            if (df && dumped < 30) {
+                fwrite(ef.data.data(), 1, ef.data.size(), df);
+                if (++dumped == 30) { fclose(df); df = nullptr;
+                    fprintf(stderr, "nuos-stream: dumped 30 AUs
+"); }
+            }
+        }
+
         std::vector<VideoPacket> frags;
         std::vector<FecPacket> fec;
         pkt.frame_packets(mono_ns(), frame_seq, ef.data.data(), ef.data.size(),
