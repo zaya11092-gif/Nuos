@@ -158,17 +158,16 @@ int main(int argc, char** argv) {
         last_slot_ns = slot_ns;
 
         EncodedFrame ef;
+        static int nfails = 0;
         if (!enc.encode_bgra(view.data, (int)view.stride, ef) || ef.data.empty()) {
             static int nfails = 0;
             if ((nfails++ & 31) == 0)
-                fprintf(stderr, "nuos-stream: encode_bgra failed (frame %d)
-", nfails);
+                fprintf(stderr, "nuos-stream: encode_bgra failed (frame %d)\n", nfails);
             std::this_thread::sleep_until(next);
             continue;
         }
         if (nfails > 0 && ef.data.size() > 0) {
-            fprintf(stderr, "nuos-stream: encode RECOVERED, au=%zu bytes
-", ef.data.size());
+            fprintf(stderr, "nuos-stream: encode RECOVERED, au=%zu bytes\n", ef.data.size());
             nfails = 0;
         }
 
@@ -184,8 +183,7 @@ int main(int argc, char** argv) {
             if (df && dumped < 30) {
                 fwrite(ef.data.data(), 1, ef.data.size(), df);
                 if (++dumped == 30) { fclose(df); df = nullptr;
-                    fprintf(stderr, "nuos-stream: dumped 30 AUs
-"); }
+                    fprintf(stderr, "nuos-stream: dumped 30 AUs\n"); }
             }
         }
 

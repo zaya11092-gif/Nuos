@@ -160,13 +160,15 @@ bool VaEncoder::encode_bgra(const uint8_t* bgra, int stride, EncodedFrame& out) 
     // Point the frame at our staging buffer (no per-frame allocation).
     if (av_image_fill_arrays(impl_->sw_frame->data, impl_->sw_frame->linesize,
                              impl_->nv12, AV_PIX_FMT_NV12, cfg_.width,
-                             cfg_.height, 1) < 0)
+                             cfg_.height, 1) < 0) {
+        fprintf(stderr, "nuos-stream: fill_arrays failed
+");
         return false;
+    }
 
     const bool want_idr = impl_->force_idr_.exchange(false);
     if (want_idr) impl_->sw_frame->pict_type = AV_PICTURE_TYPE_I;
 
-    if (av_frame_make_writable(impl_->hw_frame) < 0) return false;
     int tr = av_hwframe_transfer_data(impl_->hw_frame, impl_->sw_frame, 0);
     if (tr < 0) {
         char buf[AV_ERROR_MAX_STRING_SIZE] = {0};
