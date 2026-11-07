@@ -27,6 +27,8 @@ struct VaEncoder::Impl {
     uint8_t* nv12 = nullptr;
     int nv12_size = 0;
     unsigned frame_num = 0;
+    VAImage img{};
+    bool img_ok = false;
 };
 
 VaEncoder::~VaEncoder() { close(); }
@@ -51,6 +53,17 @@ bool VaEncoder::init(const EncoderConfig& cfg, std::string* err) {
         return false;
     }
     if (!setup_surface_encoding(err)) return false;
+
+    // Persistent NV12 image: fill via vaMapBuffer each frame, upload with
+    // vaPutImage (per-frame vaDeriveImage/vaDestroyImage segfaults on iHD).
+    VAImageFormat fmt{};
+    fmt.fourcc = VA_FOURCC_NV12;
+    fmt.byte_order = VA_LSB_FIRST;
+    fmt.bits_per_pixel = 12;
+    if (vaCreateImage(impl_->dpy, &fmt, cfg_.width, cfg_.height, &impl_->img)
+        == VA_STATUS_SUCCESS) {
+        impl_->img_ok = true;
+    }
     ready_ = true;
     return true;
 }
@@ -140,6 +153,7 @@ void VaEncoder::close() {
         vaDestroySurfaces(impl_->dpy, &impl_->surface, 1);
     if (impl_->config != VA_INVALID_ID)
         vaDestroyConfig(impl_->dpy, impl_->config);
+    if (impl_->img_ok) vaDestroyImage(impl_->dpy, impl_->img.buf);
     if (impl_->dpy) vaTerminate(impl_->dpy);
     if (impl_->sws) sws_freeContext(impl_->sws);
     if (impl_->nv12) av_free(impl_->nv12);
@@ -209,21 +223,23 @@ bool VaEncoder::encode_nv12(const uint8_t* y, const uint8_t* uv, int y_stride,
     }
 
     // upload pixels into the surface
-    VAImage img{};
-    vaDeriveImage(impl_->dpy, impl_->surface, &img);
+    if (!impl_->img_ok) return false;
     void* pmem = nullptr;
-    if (vaMapBuffer(impl_->dpy, img.buf, &pmem) == VA_STATUS_SUCCESS && pmem) {
+    if (vaMapBuffer(impl_->dpy, impl_->img.buf, &pmem) == VA_STATUS_SUCCESS
+        && pmem) {
         uint8_t* base = (uint8_t*)pmem;
         for (int r = 0; r < cfg_.height; ++r)
-            memcpy(base + (size_t)r * img.pitches[0], y + (size_t)r * y_stride,
-                   cfg_.width);
-        uint8_t* cbase = base + (size_t)img.offsets[1];
+            memcpy(base + (size_t)r * impl_->img.pitches[0],
+                   y + (size_t)r * y_stride, cfg_.width);
+        uint8_t* cbase = base + (size_t)impl_->img.offsets[1];
         for (int r = 0; r < cfg_.height / 2; ++r)
-            memcpy(cbase + (size_t)r * img.pitches[1], uv + (size_t)r * uv_stride,
-                   cfg_.width);
-        vaUnmapBuffer(impl_->dpy, img.buf);
+            memcpy(cbase + (size_t)r * impl_->img.pitches[1],
+                   uv + (size_t)r * uv_stride, cfg_.width);
+        vaUnmapBuffer(impl_->dpy, impl_->img.buf);
     }
-    vaDestroyImage(impl_->dpy, img.buf);
+    vaPutImage(impl_->dpy, impl_->surface, impl_->img.buf,
+               0, 0, (unsigned)cfg_.width, (unsigned)cfg_.height,
+               0, 0, (unsigned)cfg_.width, (unsigned)cfg_.height);
 
     st = vaBeginPicture(impl_->dpy, impl_->context, impl_->surface);
     if (st == VA_STATUS_SUCCESS) {
