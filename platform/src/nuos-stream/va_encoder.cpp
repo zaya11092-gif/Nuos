@@ -161,8 +161,7 @@ bool VaEncoder::encode_bgra(const uint8_t* bgra, int stride, EncodedFrame& out) 
     if (av_image_fill_arrays(impl_->sw_frame->data, impl_->sw_frame->linesize,
                              impl_->nv12, AV_PIX_FMT_NV12, cfg_.width,
                              cfg_.height, 1) < 0) {
-        fprintf(stderr, "nuos-stream: fill_arrays failed
-");
+        fprintf(stderr, "nuos-stream: fill_arrays failed\n");
         return false;
     }
 
