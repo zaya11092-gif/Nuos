@@ -9,13 +9,20 @@
 #include <mutex>
 #include <vector>
 
+// FFmpeg 8 headers (Ubuntu 26.04) do not self-wrap in extern "C" —
+// without this wrapper every symbol compiles as C++-mangled and fails to link.
+extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavutil/hwcontext.h>
+#include <libavutil/imgutils.h>
 #include <libavutil/opt.h>
 #include <libavutil/pixfmt.h>
 #include <libswscale/swscale.h>
+}
 
 #include "va_encoder.hpp"
+
+namespace nuos {
 
 struct VaEncoder::Impl {
     SwsContext* sws = nullptr;
@@ -31,14 +38,10 @@ struct VaEncoder::Impl {
 
     std::mutex m;
     std::atomic<bool> force_idr_{false};
+    unsigned frame_num = 0;
 };
 
 VaEncoder::~VaEncoder() { close(); }
-
-bool VaEncoder::ok() const { return ready_; }
-void VaEncoder::force_idr() { impl_->force_idr_ = true; }
-void VaEncoder::set_bitrate_kbps(uint32_t) { /* fixed at open; v2 */ }
-void VaEncoder::set_fps(uint32_t) { /* fixed at open; v2 */ }
 
 void VaEncoder::close() {
     if (!impl_) return;
@@ -176,3 +179,4 @@ bool VaEncoder::encode_bgra(const uint8_t* bgra, int stride, EncodedFrame& out) 
     }
     return got;
 }
+} // namespace nuos
