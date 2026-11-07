@@ -11,6 +11,7 @@ import MetalKit
 import SwiftUI
 
 struct ContentView: View {
+    @State private var manualIP: String = ""
     @EnvironmentObject var sessionModel: SessionModel
     @State private var showDiagnostics = false
     @State private var showStream = false
@@ -39,6 +40,19 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
 
             if sessionModel.state == .idle {
+                HStack {
+                    TextField("Board IP (e.g. 192.168.1.197)", text: $manualIP)
+                        .textFieldStyle(.roundedBorder)
+                        .keyboardType(.decimalPad)
+                        .autocorrectionDisabled()
+                    Button("Connect") {
+                        sessionModel.connectToIP(manualIP)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(manualIP.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                .padding(.horizontal)
+
                 Button("Find Boards") {
                     sessionModel.startBrowsing()
                 }

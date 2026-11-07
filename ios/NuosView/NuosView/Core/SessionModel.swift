@@ -123,6 +123,18 @@ final class SessionModel: ObservableObject {
         link.connectControl(to: controlEndpoint(for: board))
     }
 
+    /// Manual connect by IP (fallback for networks with multicast filtering).
+    func connectToIP(_ host: String) {
+        guard state != .connecting, state != .streaming else { return }
+        let trimmed = host.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        wantConnected = true
+        selectedBoardID = trimmed
+        setState(.connecting, message: "Connecting to \(trimmed)…")
+        let port = NWEndpoint.Port(rawValue: NuosProto.portControl)!
+        link.connectControl(to: NWEndpoint.hostPort(host: .init(trimmed), port: port))
+    }
+
     /// Endpoint for the TCP control channel: prefer a resolved sockaddr from
     /// mDNS, otherwise host name + control port.
     private func controlEndpoint(for board: NuosDiscoveredBoard) -> NWEndpoint {
