@@ -28,6 +28,8 @@ public:
     // Returns false if none stable yet.
     bool latest(RgbaView& view, uint64_t& slot_ns);
 
+    const nuos_ring_hdr_t* header() const { return hdr_; }
+
 private:
     int fd_ = -1;
     void* map_ = nullptr;

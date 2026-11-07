@@ -183,6 +183,31 @@ bool VaEncoder::encode_bgra(const uint8_t* bgra, int stride, EncodedFrame& out) 
 bool VaEncoder::encode_nv12(const uint8_t* y, const uint8_t* uv, int y_stride,
                             int uv_stride, EncodedFrame& out) {
     VAStatus st;
+    // SPS: without a rendered sequence buffer the driver emits NO bitstream
+    VAEncSequenceParameterBufferHEVC seq{};
+    seq.general_profile_idc = 1;   // Main
+    seq.general_level_idc = 120;   // level 4.0
+    seq.intra_period = cfg_.gop;
+    seq.ip_period = 0;
+    seq.bits_per_second = cfg_.bitrate_kbps * 1000;
+    seq.pic_width_in_luma_samples = (uint16_t)cfg_.width;
+    seq.pic_height_in_luma_samples = (uint16_t)cfg_.height;
+    seq.seq_fields.bits.chroma_format_idc = 1;               // 4:2:0
+    seq.seq_fields.bits.bit_depth_luma_minus8 = 0;
+    seq.seq_fields.bits.bit_depth_chroma_minus8 = 0;
+    seq.seq_fields.bits.sps_temporal_mvp_enabled_flag = 1;
+    seq.seq_fields.bits.sample_adaptive_offset_enabled_flag = 1;
+    VABufferID seq_buf = VA_INVALID_ID;
+    VAStatus sst = vaCreateBuffer(impl_->dpy, impl_->context,
+                                  VAEncSequenceParameterBufferType,
+                                  sizeof seq, 1, &seq, &seq_buf);
+    if (sst == VA_STATUS_SUCCESS) {
+        vaRenderPicture(impl_->dpy, impl_->context, &seq_buf, 1);
+        vaDestroyBuffer(impl_->dpy, seq_buf);
+    } else if ((impl_->frame_num & 63) == 0) {
+        fputc(10, stderr);  // newline (byte 10), mangled literal removed
+    }
+
     VAEncPictureParameterBufferHEVC pic{};
     pic.slice_pic_parameter_set_id = 0;
     pic.nal_unit_type = want_idr_ ? 19 : 1; /* IDR_W_RADL / TRAIL_R */
@@ -248,6 +273,8 @@ bool VaEncoder::encode_nv12(const uint8_t* y, const uint8_t* uv, int y_stride,
         if (hrd_buf != VA_INVALID_ID)
             vaRenderPicture(impl_->dpy, impl_->context, &hrd_buf, 1);
         vaEndPicture(impl_->dpy, impl_->context);
+    } else if ((impl_->frame_num & 63) == 0) {
+        fprintf(stderr, "nuos-stream: vaBeginPicture failed: %d\n", (int)st);
     }
 
     // read coded data
@@ -259,8 +286,10 @@ bool VaEncoder::encode_nv12(const uint8_t* y, const uint8_t* uv, int y_stride,
         out.idr = want_idr_;
         got = true;
         vaUnmapBuffer(impl_->dpy, impl_->coded_buf);
-    } else if (seg) {
-        vaUnmapBuffer(impl_->dpy, impl_->coded_buf);
+    } else {
+        if (seg) vaUnmapBuffer(impl_->dpy, impl_->coded_buf);
+        if ((impl_->frame_num & 63) == 0)
+            fprintf(stderr, "nuos-stream: no coded data this frame\n");
     }
 
     vaDestroyBuffer(impl_->dpy, pic_buf);

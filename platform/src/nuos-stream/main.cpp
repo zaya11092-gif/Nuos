@@ -97,6 +97,18 @@ int main(int argc, char** argv) {
 
     VaEncoder enc;
     EncoderConfig ecfg;
+    if (ring_ok) {
+        // Encode the ring frame AS-IS (side-by-side stereo, whatever dims
+        // the home renders) — the phone displays the decoded frame full
+        // screen. Session width/height from the phone is ignored for dims.
+        if (auto* h = ring.header()) {
+            if (h->width > 0 && h->height > 0) {
+                ecfg.width = (int)h->width;
+                ecfg.height = (int)h->height;
+                fprintf(stderr, "nuos-stream: encoding ring %dx%d\n", ecfg.width, ecfg.height);
+            }
+        }
+    }
     std::string err;
     if (!enc.init(ecfg, &err)) {
         fprintf(stderr, "nuos-stream: VAAPI encoder unavailable: %s\n", err.c_str());
