@@ -74,9 +74,11 @@ extern "C" {
 void* pvrdec_create(int width, int height) {
     PVRDecoder* d = [PVRDecoder new];
     d.width = width; d.height = height;
+    CVMetalTextureCacheRef cache = nullptr;
     CVReturn r = CVMetalTextureCacheCreate(
         kCFAllocatorDefault, nullptr,
-        (id<MTLDevice>)MTLCopyAllDevices().firstObject, nullptr, &d.texCache);
+        (id<MTLDevice>)MTLCopyAllDevices().firstObject, nullptr, &cache);
+    d.texCache = cache;
     if (r != kCVReturnSuccess) { PvrDecLog(@"texcache fail"); return nullptr; }
     return (__bridge_retained void*)d;
 }
@@ -87,8 +89,10 @@ int pvrdec_params(void* h, const char* vps, int vl, const char* sps, int sl,
     const uint8_t* ptrs[3] = {(const uint8_t*)vps, (const uint8_t*)sps,
                               (const uint8_t*)pps};
     const int sizes[3] = {vl, sl, pl};
+    CMVideoFormatDescriptionRef descOut = nullptr;
     OSStatus st = CMVideoFormatDescriptionCreateFromHEVCParameterSets(
-        kCFAllocatorDefault, 3, ptrs, sizes, 4, nullptr, &d.desc);
+        kCFAllocatorDefault, 3, ptrs, sizes, 4, nullptr, &descOut);
+    d.desc = descOut;
     if (st != noErr) { d.failed = YES; return (int)st; }
 
     NSDictionary* spec = @{
@@ -138,8 +142,9 @@ int pvrdec_feed(void* h, const char* au, int len) {
 
     CMSampleBufferRef sample = nullptr;
     CMVideoFormatDescriptionRef desc = d.desc;
+    NSUInteger auLen = prefixed.length;
     st = CMSampleBufferCreateReady(kCFAllocatorDefault, block, desc, 1, 0,
-                                   nullptr, 1, &prefixed.length, &sample);
+                                   nullptr, 1, &auLen, &sample);
     if (st != noErr) { CFRelease(block); return -1; }
 
     st = VTDecompressionSessionDecodeFrame(d.session, sample,
