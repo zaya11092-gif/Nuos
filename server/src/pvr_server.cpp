@@ -66,7 +66,8 @@ static int g_phone_ctl = -1;            // TCP socket to phone control
 static std::string g_phone_ip;
 static std::vector<uint8_t> g_header_nals;  // Annex-B VPS/SPS/PPS
 static std::atomic<bool> g_have_headers{false};
-static std::atomic<uint32_t> g_stream_window{0};  // X11 window id to stream
+static std::atomic<uint32_t> g_stream_window{0};
+static std::atomic<bool> g_force_idr{false};  // X11 window id to stream
 static float g_pose_quat[4] = {0, 0, 0, 1};       // latest phone pose
 static std::atomic<uint64_t> g_pose_ns{0};
 
@@ -238,6 +239,7 @@ public:
         }
         hw_->pts = (int64_t)frame_++;
         hw_->pts = (int64_t)frame_++;
+        if (g_force_idr.exchange(false)) hw_->pict_type = AV_PICTURE_TYPE_I;
 
         if (avcodec_send_frame(ctx_, hw_) < 0) {
             LOGI("encode: send_frame failed");
@@ -348,7 +350,8 @@ static void handle_tlv(int fd, uint8_t type, const std::vector<uint8_t>& pl) {
               ((uint32_t)pl[2] << 16) | ((uint32_t)pl[3] << 24)
             : 0;
         g_stream_window = id;
-        LOGI("stream window -> %u", id);
+        g_force_idr = true;
+        LOGI("stream window -> %u (IDR forced)", id);
         break;
     }
     default:
