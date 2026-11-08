@@ -8,6 +8,8 @@
 #
 # Usage: fake-phone.py [board_ip] [dump_path] [duration_s]
 import socket, struct, sys, threading, time, json
+sys.stdout.reconfigure(line_buffering=True)
+sys.stderr.reconfigure(line_buffering=True)
 
 BOARD = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
 DUMP = sys.argv[2] if len(sys.argv) > 2 else "/tmp/fake-phone.265"

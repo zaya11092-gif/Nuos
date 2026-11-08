@@ -181,10 +181,16 @@ public:
         // pairs (phones expect HEADER_NALS right after PAIR_ACCEPT).
         std::vector<uint8_t> bgra((size_t)w_ * h_ * 4, 0x80);
         std::vector<uint8_t> au;
-        if (encode_bgra(bgra.data(), w_ * 4, au)) {
-            LOGI("warm-up frame encoded, header NALs cached (%zu bytes)",
-                 header_nals_.size());
+        for (int i = 0; i < 12 && au.empty(); ++i) {
+            encode_bgra(bgra.data(), w_ * 4, au);
         }
+        if (!au.empty()) {
+            LOGI("warm-up encoded, header NALs cached (%zu bytes)",
+                 header_nals_.size());
+        } else {
+            LOGI("warm-up produced no bitstream (will retry on stream)");
+        }
+        frame_ = 0;
         frame_ = 0;
         LOGI("encoder ready %dx%d @ %u kbps (hevc_vaapi)", w, h, bitrate_kbps);
         return true;
@@ -202,16 +208,29 @@ public:
         sws_scale(sws_, src, sstr, 0, h_, dst, dstr);
 
         if (av_image_fill_arrays(sw_->data, sw_->linesize, nv12_,
-                                 AV_PIX_FMT_NV12, w_, h_, 1) < 0)
+                                 AV_PIX_FMT_NV12, w_, h_, 1) < 0) {
+            LOGI("encode: fill_arrays failed");
             return false;
+        }
         av_frame_unref(hw_);
         hw_->format = AV_PIX_FMT_VAAPI;
         hw_->width = w_; hw_->height = h_;
-        if (av_hwframe_get_buffer(hw_frames_, hw_, 0) < 0) return false;
-        if (av_hwframe_transfer_data(hw_, sw_, 0) < 0) return false;
+        if (av_hwframe_get_buffer(hw_frames_, hw_, 0) < 0) {
+            LOGI("encode: get_buffer failed");
+            return false;
+        }
+        int tr = av_hwframe_transfer_data(hw_, sw_, 0);
+        if (tr < 0) {
+            LOGI("encode: transfer failed %d", tr);
+            return false;
+        }
+        hw_->pts = (int64_t)frame_++;
         hw_->pts = (int64_t)frame_++;
 
-        if (avcodec_send_frame(ctx_, hw_) < 0) return false;
+        if (avcodec_send_frame(ctx_, hw_) < 0) {
+            LOGI("encode: send_frame failed");
+            return false;
+        }
         bool got = false;
         while (avcodec_receive_packet(ctx_, pkt_) == 0) {
             if (!got && !header_sent_) {
@@ -230,6 +249,7 @@ public:
             av_packet_unref(pkt_);
             if (got) break;
         }
+        if (!got) LOGI("encode: no packet from driver");
         return got;
     }
 
@@ -333,8 +353,9 @@ static void control_reader(int fd) {
 // ---------------------------------------------------------------- pairing
 static void pair_with_phone(const std::string& ip) {
     std::lock_guard<std::mutex> lk(g_phone_mtx);
+    // Always re-pair on a fresh announce: the previous control socket may be
+    // a dead peer (phone restarted), and announces repeat every 500 ms.
     if (g_phone_ctl >= 0) {
-        if (g_phone_ip == ip) return;  // already paired to this phone
         close(g_phone_ctl);
         g_phone_ctl = -1;
     }
