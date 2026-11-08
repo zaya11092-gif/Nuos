@@ -58,8 +58,7 @@ namespace CardboardXR.PVR
             // Minimal JSON walk: {"id":..,"title":".."} entries.
             try
             {
-                var list = Newtonsoft.Json.JsonConvert
-                    .DeserializeObject<System.Collections.Generic.List<WinEntry>>(json);
+                var list = ParseWindowJson(json);
                 if (list == null) return;
                 _windowTitles = new string[list.Count];
                 _windowIds = new uint[list.Count];
@@ -78,6 +77,52 @@ namespace CardboardXR.PVR
 
         [Serializable]
         class WinEntry { public uint id; public string title; public int w, h; }
+
+        // Minimal parser for [{"id":N,"title":"...","w":N,"h":N}, ...] —
+        // flat objects only, avoids the Newtonsoft package dependency.
+        static System.Collections.Generic.List<WinEntry> ParseWindowJson(string json)
+        {
+            var res = new System.Collections.Generic.List<WinEntry>();
+            int i = json.IndexOf('"', json.IndexOf('['));
+            uint id = 0; string title = null; int w = 0, h = 0;
+            while (i >= 0 && i < json.Length)
+            {
+                int q = json.IndexOf('"', i);
+                int q2 = q >= 0 ? json.IndexOf('"', q + 1) : -1;
+                if (q < 0 || q2 < 0) break;
+                string key = json.Substring(q + 1, q2 - q - 1);
+                int colon = json.IndexOf(':', q2);
+                if (colon < 0) break;
+                if (key == "title")
+                {
+                    int tq = json.IndexOf('"', colon + 1);
+                    int tq2 = json.IndexOf('"', tq + 1);
+                    title = json.Substring(tq + 1, tq2 - tq - 1);
+                    i = tq2 + 1;
+                }
+                else
+                {
+                    int comma = json.IndexOf(',', colon);
+                    int close = json.IndexOf('}', colon);
+                    int end = (comma >= 0 && comma < close) ? comma : close;
+                    if (end < 0) break;
+                    int val = int.TryParse(json.Substring(colon + 1, end - colon - 1).Trim(), out var v) ? v : 0;
+                    if (key == "id") id = (uint)val;
+                    else if (key == "w") w = val;
+                    else if (key == "h") h = val;
+                    i = end;
+                }
+                if (json[i] == '}')
+                {
+                    res.Add(new WinEntry { id = id, title = title ?? ("win " + id), w = w, h = h });
+                    id = 0; title = null; w = 0; h = 0;
+                    int next = json.IndexOf('{', i);
+                    if (next < 0) break;
+                    i = next;
+                }
+            }
+            return res;
+        }
 
         void BuildButtons()
         {
