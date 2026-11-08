@@ -174,6 +174,7 @@ public:
         sw_ = av_frame_alloc();
         sw_->format = AV_PIX_FMT_NV12;
         sw_->width = w; sw_->height = h;
+        hw_ = av_frame_alloc();
         pkt_ = av_packet_alloc();
 
         // Encode one gray frame NOW so VPS/SPS/PPS exist before any phone
