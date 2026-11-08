@@ -72,17 +72,24 @@ t, header_nals = recv_msg()
 assert t == 5, "expected HEADER_NALS"
 print(f"[fake-phone] HEADER_NALS {len(header_nals)} bytes")
 
-conn.sendall(tlv(0x10))  # LIST_WINDOWS_REQ
-t, p = recv_msg()
-wins = []
-if t == 4:
-    try:
-        wins = json.loads(p.decode())
-        print(f"[fake-phone] windows: {len(wins)}")
-        for w in wins[:6]:
-            print("   ", w)
-    except Exception as e:
-        print("windows parse fail:", e, p[:100])
+def list_windows():
+    conn.sendall(tlv(0x10))
+    t, p = recv_msg()
+    if t == 4:
+        try: return json.loads(p.decode())
+        except Exception as e: print("windows parse fail:", e); return []
+    return []
+
+wins = list_windows()
+if not wins:
+    print("[fake-phone] no windows; launching xterm via LAUNCH")
+    conn.sendall(tlv(0x11, b"xterm -title NuOS-Test"))
+    t, p = recv_msg()  # ack
+    time.sleep(2.5)
+    wins = list_windows()
+    print(f"[fake-phone] windows now: {len(wins)}")
+for w in wins[:6]:
+    print("   ", w)
 
 vid = socket.create_connection((BOARD, 15243), timeout=5)
 vid.settimeout(1.0)
