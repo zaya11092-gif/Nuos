@@ -66,9 +66,11 @@ namespace CardboardXR.PVR
             _announceThread = new Thread(AnnounceLoop) { IsBackground = true };
             _controlThread = new Thread(ControlLoop) { IsBackground = true };
             _poseThread = new Thread(PoseLoop) { IsBackground = true };
+            var handsThread = new Thread(HandsLoop) { IsBackground = true };
             _announceThread.Start();
             _controlThread.Start();
             _poseThread.Start();
+            handsThread.Start();
             Status("link starting");
         }
 
@@ -245,6 +247,39 @@ namespace CardboardXR.PVR
 
         /// <summary>Head orientation (room space); fed by the stereo rig.</summary>
         public Quaternion HeadQuat = Quaternion.identity;
+
+        // Hand state for SteamVR controllers (fed by PVRHands).
+        public static float LeftPinch, RightPinch;
+        public static bool LeftPresent, RightPresent;
+
+        UdpClient _hands;
+
+        void HandsLoop()
+        {
+            _hands = new UdpClient();
+            // NuOS hands packet: 'N','U','H','2' | flags u8 | Lpinch Lgrip
+            // Rpinch Rgrip f32 | (21 bytes) — consumed by nuospvr-server.
+            var pkt = new byte[21];
+            pkt[0] = (byte)'N'; pkt[1] = (byte)'U'; pkt[2] = (byte)'H';
+            pkt[3] = (byte)'2';
+            while (_running)
+            {
+                pkt[4] = (byte)((LeftPresent ? 1 : 0) | (RightPresent ? 2 : 0));
+                BitConverter.GetBytes(LeftPinch).CopyTo(pkt, 5);
+                BitConverter.GetBytes(LeftPinch).CopyTo(pkt, 9);
+                BitConverter.GetBytes(RightPinch).CopyTo(pkt, 13);
+                BitConverter.GetBytes(RightPinch).CopyTo(pkt, 17);
+                try
+                {
+                    var ip = _boardIpFound != "" ? _boardIpFound : boardIp;
+                    if (ip != "")
+                        _hands.Send(pkt, pkt.Length,
+                            new IPEndPoint(IPAddress.Parse(ip), 51424));
+                }
+                catch { }
+                Thread.Sleep(33);
+            }
+        }
 
         // ------------------------------------------------------------ control API
         public void ListWindows()

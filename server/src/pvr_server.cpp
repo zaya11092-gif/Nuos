@@ -67,7 +67,10 @@ static std::string g_phone_ip;
 static std::vector<uint8_t> g_header_nals;  // Annex-B VPS/SPS/PPS
 static std::atomic<bool> g_have_headers{false};
 static std::atomic<uint32_t> g_stream_window{0};
-static std::atomic<bool> g_force_idr{false};  // X11 window id to stream
+static std::atomic<bool> g_force_idr{false};
+static std::atomic<bool> g_vr_mode{false};   // SteamVR streaming
+static std::atomic<float> g_lpinch{0}, g_rpinch{0};
+static std::atomic<uint8_t> g_handflags{0};  // X11 window id to stream
 static float g_pose_quat[4] = {0, 0, 0, 1};       // latest phone pose
 static std::atomic<uint64_t> g_pose_ns{0};
 
@@ -344,6 +347,13 @@ static void handle_tlv(int fd, uint8_t type, const std::vector<uint8_t>& pl) {
         send_msg(fd, MSG_ADDITIONAL_DATA, ok, (uint16_t)strlen(ok));
         break;
     }
+    case 0x13: {  // VR_MODE: 1 = SteamVR pose bridge + mirror streaming
+        g_vr_mode = pl.size() >= 1 && pl[0] == 1;
+        LOGI("VR mode -> %d", (int)g_vr_mode);
+        const char* ok = "{\"vr\":true}";
+        send_msg(fd, MSG_ADDITIONAL_DATA, ok, (uint16_t)strlen(ok));
+        break;
+    }
     case TLV_STREAM_WINDOW: {
         uint32_t id = pl.size() >= 4
             ? (uint32_t)pl[0] | ((uint32_t)pl[1] << 8) |
@@ -533,6 +543,81 @@ static void* video_server(void* arg) {
     return nullptr;
 }
 
+static void* hands_listener(void*) {
+    int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    sockaddr_in a{};
+    a.sin_family = AF_INET;
+    a.sin_port = htons(51424);
+    a.sin_addr.s_addr = INADDR_ANY;
+    int one = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+    bind(fd, (sockaddr*)&a, sizeof a);
+    LOGI("listening for hands on UDP 51424");
+    uint8_t buf[64];
+    while (!g_stop) {
+        ssize_t r = recvfrom(fd, buf, sizeof buf, 0, nullptr, nullptr);
+        if (r < 21 || memcmp(buf, "NUH2", 4) != 0) continue;
+        g_handflags = buf[4];
+        float lp, rp;
+        memcpy(&lp, buf + 5, 4);
+        memcpy(&rp, buf + 13, 4);
+        g_lpinch = lp;
+        g_rpinch = rp;
+    }
+    return nullptr;
+}
+
+// Bridge phone pose -> the OpenTrack SteamVR driver (FreeTrack-style 48-byte
+// TOpenTrack: double X,Y,Z (m), Yaw,Pitch,Roll (deg)) + 32-byte hands block.
+static double* quat_to_opentrack(const float q[4], uint8_t out[80]) {
+    double qw = q[0], qx = q[1], qy = q[2], qz = q[3];
+    double yaw = atan2(2.0 * (qw * qy + qx * qz),
+                       1.0 - 2.0 * (qy * qy + qz * qz));
+    double pitch = asin(2.0 * (qw * qx - qy * qz));
+    double roll = atan2(2.0 * (qw * qz + qx * qy),
+                        1.0 - 2.0 * (qx * qx + qy * qy));
+    const double rad2deg = 57.29577951308232;
+    memset(out, 0, 80);
+    double* ot = (double*)out;  // X,Y,Z,Yaw,Pitch,Roll
+    ot[3] = yaw * rad2deg;
+    ot[4] = pitch * rad2deg;
+    ot[5] = roll * rad2deg;
+    float lp = g_lpinch, rp = g_rpinch;
+    uint8_t flags = g_handflags;
+    uint32_t* hands = (uint32_t*)(out + 48);
+    hands[0] = flags;
+    memcpy(hands + 1, &lp, 4);
+    memcpy(hands + 2, &lp, 4);
+    memcpy(hands + 3, &rp, 4);
+    memcpy(hands + 4, &rp, 4);
+    return (double*)out;
+}
+
+static void* opentrack_bridge(void*) {
+    int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    sockaddr_in a{};
+    a.sin_family = AF_INET;
+    a.sin_port = 0;
+    a.sin_addr.s_addr = INADDR_ANY;
+    bind(fd, (sockaddr*)&a, sizeof a);
+    sockaddr_in dst{};
+    dst.sin_family = AF_INET;
+    dst.sin_port = htons(4242);
+    dst.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    LOGI("OpenTrack bridge -> 127.0.0.1:4242");
+    while (!g_stop) {
+        if (g_vr_mode) {
+            uint8_t pkt[80];
+            float q[4] = {g_pose_quat[0], g_pose_quat[1], g_pose_quat[2],
+                          g_pose_quat[3]};
+            quat_to_opentrack(q, pkt);
+            sendto(fd, pkt, 80, 0, (sockaddr*)&dst, sizeof dst);
+        }
+        usleep(8000);  // ~120 Hz
+    }
+    return nullptr;
+}
+
 // ---------------------------------------------------------------- main
 int main(int argc, char** argv) {
     signal(SIGPIPE, SIG_IGN);
@@ -562,6 +647,9 @@ int main(int argc, char** argv) {
     pthread_create(&t1, nullptr, announce_listener, nullptr);
     pthread_create(&t2, nullptr, pose_listener, nullptr);
     pthread_create(&t3, nullptr, video_server, &enc);
+    pthread_t t4, t5;
+    pthread_create(&t4, nullptr, hands_listener, nullptr);
+    pthread_create(&t5, nullptr, opentrack_bridge, nullptr);
 
     while (!g_stop) sleep(1);
     return 0;
