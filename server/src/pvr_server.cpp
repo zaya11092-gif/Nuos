@@ -175,6 +175,16 @@ public:
         sw_->format = AV_PIX_FMT_NV12;
         sw_->width = w; sw_->height = h;
         pkt_ = av_packet_alloc();
+
+        // Encode one gray frame NOW so VPS/SPS/PPS exist before any phone
+        // pairs (phones expect HEADER_NALS right after PAIR_ACCEPT).
+        std::vector<uint8_t> bgra((size_t)w_ * h_ * 4, 0x80);
+        std::vector<uint8_t> au;
+        if (encode_bgra(bgra.data(), w_ * 4, au)) {
+            LOGI("warm-up frame encoded, header NALs cached (%zu bytes)",
+                 header_nals_.size());
+        }
+        frame_ = 0;
         LOGI("encoder ready %dx%d @ %u kbps (hevc_vaapi)", w, h, bitrate_kbps);
         return true;
     }
