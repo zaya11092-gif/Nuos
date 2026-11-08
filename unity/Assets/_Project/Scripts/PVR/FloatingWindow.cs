@@ -160,24 +160,24 @@ namespace CardboardXR.PVR
                 _renderer.material.mainTexture = tex;
             }
 
-            // Gaze-select buttons: raycast from camera.
+            // Gaze-select buttons: raycast from camera; tap with the viewer
+            // button (mouse left / touchscreen press via Input System).
             if (_cam != null && _buttons != null && Physics.Raycast(
                     _cam.transform.position, _cam.transform.forward,
                     out var hit, 5f))
             {
+                bool tapped =
+                    (UnityEngine.InputSystem.Mouse.current != null &&
+                     UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame) ||
+                    (UnityEngine.InputSystem.Touchscreen.current != null &&
+                     UnityEngine.InputSystem.Touchscreen.current.primaryTouch.press.wasPressedThisFrame);
+                if (!tapped) return;
                 var go = hit.collider.gameObject;
                 for (int i = 0; i < _buttons.Length; i++)
                 {
                     if (_buttons[i] != go) continue;
-                    // Trigger on screen tap (Cardboard viewer button).
-                    if (Input.GetMouseButtonDown(0) ||
-                        (Input.touchCount > 0 && Input.GetTouch(0).phase ==
-                            TouchPhase.Began))
-                    {
-                        Debug.Log("[FloatingWindow] stream window " +
-                                  _windowIds[i]);
-                        _link.StreamWindow(_windowIds[i]);
-                    }
+                    Debug.Log("[FloatingWindow] stream window " + _windowIds[i]);
+                    _link.StreamWindow(_windowIds[i]);
                     break;
                 }
             }
