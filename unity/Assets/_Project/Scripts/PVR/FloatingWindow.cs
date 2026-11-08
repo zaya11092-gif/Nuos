@@ -125,6 +125,8 @@ namespace CardboardXR.PVR
             return res;
         }
 
+        bool _vrMode;
+
         void BuildButtons()
         {
             if (_buttons != null)
@@ -134,22 +136,59 @@ namespace CardboardXR.PVR
             parent.SetParent(transform, false);
             parent.localPosition = new Vector3(0f, -Width * 9f / 32f - 0.12f, -0.02f);
             float bw = Width / Mathf.Max(3, _buttons.Length) - 0.04f;
-            for (int i = 0; i < _buttons.Length; i++)
+            int n = _buttons.Length;
+            for (int i = 0; i < n; i++)
             {
                 var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 go.name = "win" + _windowIds[i];
                 go.transform.SetParent(parent, false);
-                float x = (i - (_buttons.Length - 1) / 2f) * (bw + 0.04f);
+                float x = (i - (n - 1) / 2f) * (bw + 0.04f);
                 go.transform.localPosition = new Vector3(x, 0f, 0f);
                 go.transform.localScale = new Vector3(bw, 0.05f, 0.03f);
                 go.GetComponent<Renderer>().material.color =
                     new Color(0.15f, 0.35f, 0.6f);
                 uint id = _windowIds[i];
-                var col = go.AddComponent<BoxCollider>();
-                // Tap: use camera ray in Update (gaze + pinch handled by
-                // CardboardXR's pointer; simple proximity-select for v1).
+                go.AddComponent<BoxCollider>();
                 _buttons[i] = go;
             }
+            // SteamVR tile (always last): launches PC-VR mode.
+            var vr = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            vr.name = "SteamVR";
+            vr.transform.SetParent(parent, false);
+            vr.transform.localPosition =
+                new Vector3((n) / 2f * (bw + 0.04f), 0f, 0f);
+            vr.transform.localScale = new Vector3(bw, 0.05f, 0.03f);
+            vr.GetComponent<Renderer>().material.color =
+                new Color(0.55f, 0.15f, 0.5f);
+            vr.AddComponent<BoxCollider>();
+            if (_buttons.Length == 0)
+                _buttons = new GameObject[1];
+            else
+                System.Array.Resize(ref _buttons, _buttons.Length + 1);
+            _windowIds = _windowIds.Append(uint.MaxValue).ToArray();
+            _windowTitles = _windowTitles.Append("SteamVR").ToArray();
+            _buttons[^1] = vr;
+        }
+
+        void StartVrStream()
+        {
+            _link.ListWindows();
+            Invoke(nameof(PickSteamVrWindow), 1.5f);
+        }
+
+        void PickSteamVrWindow()
+        {
+            // Pick the SteamVR monitor/compositor window from the last list.
+            if (_windowTitles.Length == 0) { Invoke(nameof(PickSteamVrWindow), 2f); return; }
+            for (int i = 0; i < _windowTitles.Length; i++)
+            {
+                if (_windowTitles[i] != "SteamVR") continue;
+                _link.StreamWindow(_windowIds[i]);
+                _vrMode = true;
+                Debug.Log("[FloatingWindow] VR stream -> " + _windowTitles[i]);
+                return;
+            }
+            Invoke(nameof(StartVrStream), 3f);
         }
 
         void Update()
@@ -177,8 +216,18 @@ namespace CardboardXR.PVR
                 for (int i = 0; i < _buttons.Length; i++)
                 {
                     if (_buttons[i] != go) continue;
-                    Debug.Log("[FloatingWindow] stream window " + _windowIds[i]);
-                    _link.StreamWindow(_windowIds[i]);
+                    if (_windowIds[i] == uint.MaxValue)
+                    {
+                        Debug.Log("[FloatingWindow] launching SteamVR");
+                        _link.LaunchSteamVR();
+                        Invoke(nameof(StartVrStream), 12f);
+                    }
+                    else
+                    {
+                        Debug.Log("[FloatingWindow] stream window " +
+                                  _windowIds[i]);
+                        _link.StreamWindow(_windowIds[i]);
+                    }
                     break;
                 }
             }

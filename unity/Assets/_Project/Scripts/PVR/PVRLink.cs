@@ -298,6 +298,20 @@ namespace CardboardXR.PVR
             lock (_ctlLock) SendTlv(0x12, p);
         }
 
+        /// <summary>VR mode: board bridges pose to the SteamVR OpenTrack
+        /// driver (TLV 0x13).</summary>
+        public void VRMode(bool on)
+        {
+            lock (_ctlLock) SendTlv(0x13, new[] { on ? (byte)1 : (byte)0 });
+        }
+
+        /// <summary>Launch SteamVR on the board (Steam must be running).</summary>
+        public void LaunchSteamVR()
+        {
+            Launch("steam steam://run/250820");
+            VRMode(true);
+        }
+
         void SendTlv(byte type, byte[] payload)
         {
             try
