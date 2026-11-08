@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using UnityEngine;
 
 namespace CardboardXR.PVR
@@ -125,7 +126,6 @@ namespace CardboardXR.PVR
             return res;
         }
 
-        bool _vrMode;
 
         void BuildButtons()
         {

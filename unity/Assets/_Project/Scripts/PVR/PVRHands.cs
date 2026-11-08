@@ -1,5 +1,6 @@
 using CardboardXR.Hands;
 using UnityEngine;
+using UnityEngine.XR.Hands;
 
 namespace CardboardXR.PVR
 {
@@ -27,11 +28,11 @@ namespace CardboardXR.PVR
             {
                 switch (f.TrackedHandedness)
                 {
-                    case UnityEngine.XR.Handedness.Left:
+                    case Handedness.Left:
                         PVRLink.LeftPinch = f.PinchValue;
                         PVRLink.LeftPresent = f.PinchValue > 0f;
                         break;
-                    case UnityEngine.XR.Handedness.Right:
+                    case Handedness.Right:
                         PVRLink.RightPinch = f.PinchValue;
                         PVRLink.RightPresent = f.PinchValue > 0f;
                         break;
