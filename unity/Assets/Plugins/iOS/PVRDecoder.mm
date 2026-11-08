@@ -88,7 +88,7 @@ int pvrdec_params(void* h, const char* vps, int vl, const char* sps, int sl,
     PVRDecoder* d = (__bridge PVRDecoder*)h;
     const uint8_t* ptrs[3] = {(const uint8_t*)vps, (const uint8_t*)sps,
                               (const uint8_t*)pps};
-    const int sizes[3] = {vl, sl, pl};
+    const size_t sizes[3] = {(size_t)vl, (size_t)sl, (size_t)pl};
     CMVideoFormatDescriptionRef descOut = nullptr;
     OSStatus st = CMVideoFormatDescriptionCreateFromHEVCParameterSets(
         kCFAllocatorDefault, 3, ptrs, sizes, 4, nullptr, &descOut);
