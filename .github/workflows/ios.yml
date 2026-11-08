@@ -52,7 +52,9 @@ jobs:
 
       - name: Package unsigned IPA
         run: |
-          APP=$(find . -type d -name "*.app" -path "*Release-iphoneos*" | head -1)
+          find . -type d -name "*.app" -path "*Release-iphoneos*" -exec du -sh {} + 2>/dev/null || true
+          APP=$(find . -type d -name "*.app" -path "*Release-iphoneos*" -exec du -sm {} + 2>/dev/null | sort -rn | head -1 | cut -d$'	' -f2-)
+          echo "selected APP: $APP"
           [ -n "$APP" ] || { echo "no .app found"; exit 1; }
           mkdir -p Payload
           cp -R "$APP" Payload/

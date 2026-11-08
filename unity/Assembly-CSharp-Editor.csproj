@@ -68,6 +68,7 @@
     <Compile Include="Assets\_Project\Demos\Sandbox\Editor\SandboxSetup.cs" />
     <Compile Include="Assets\Editor\ProjectBootstrap\HighSamplingRatePermission.cs" />
     <Compile Include="Assets\Editor\ProjectBootstrap\DemoAssets.cs" />
+    <Compile Include="Assets\Editor\PVRFrameworks.cs" />
     <Compile Include="Assets\Editor\ProjectBootstrap\IosProMotion.cs" />
     <Compile Include="Assets\_Project\Demos\Rush\Editor\RushSetup.cs" />
     <Compile Include="Assets\_Project\Demos\Paint\Editor\PaintSetup.cs" />

@@ -60,6 +60,7 @@
     <Compile Include="Assets\_Project\Scripts\PVR\PVRDecoder.cs" />
     <Compile Include="Assets\_Project\Scripts\PVR\FloatingWindow.cs" />
     <Compile Include="Assets\_Project\Scripts\PVR\PVRLink.cs" />
+    <Compile Include="Assets\_Project\Scripts\PVR\PVRHands.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Assets\TextMesh Pro\Shaders\TMPro.cginc" />
