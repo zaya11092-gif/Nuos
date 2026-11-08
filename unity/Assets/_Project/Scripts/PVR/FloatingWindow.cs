@@ -184,7 +184,6 @@ namespace CardboardXR.PVR
             {
                 if (_windowTitles[i] != "SteamVR") continue;
                 _link.StreamWindow(_windowIds[i]);
-                _vrMode = true;
                 Debug.Log("[FloatingWindow] VR stream -> " + _windowTitles[i]);
                 return;
             }
