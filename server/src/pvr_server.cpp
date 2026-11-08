@@ -387,7 +387,7 @@ static void pair_with_phone(const std::string& ip) {
     g_phone_ip = ip;
     LOGI("paired with %s (control)", ip.c_str());
     if (g_have_headers) {
-        std::lock_guard<std::mutex> hlk(g_phone_mtx);
+        // NOTE: g_phone_mtx is already held by this function.
         send_msg(fd, MSG_HEADER_NALS, g_header_nals.data(),
                  (uint16_t)std::min<size_t>(g_header_nals.size(), 0xffff));
         LOGI("sent HEADER_NALS (%zu bytes)", g_header_nals.size());
