@@ -20,12 +20,12 @@ v0.1.0–v0.1.4 on GitHub). This folder is the "keep" pile before the reset.
   `NuOS-25CF` (NetworkManager `shared` mode, 10.66.0.1/24), mDNS
   `_nuos-xr._tcp` advertising (works: Windows resolves the board's .local name).
 
-## Board access (PRIVATE repo — rotate if ever leaked)
+## Board access (credentials scrubbed for the public repo — rotate them)
 
 - IP: `192.168.1.197` (DHCP; hostname `a-Taniks.local`)
-- User: `a`, password: `1`, sudo: password `1`
+- User: `a` — password REDACTED (rotate: `sudo passwd a`), sudo same user
 - SSH keypair for the board: `C:\Users\user\.ssh\nuos_board` (+ `.pub`)
-- AP credentials live on the board in `/var/lib/nuos/ap.conf` and `~/.nuos/ap.conf`
+- AP credentials live on the board in `/var/lib/nuos/ap.conf` and `~/.nuos/ap.conf` (PSK REDACTED — rotate via `nmcli con mod nuos-ap wifi-sec.psk <new>`)
 - Setup scripts and exact service units: `git log` (search "Stage"), or the
   board itself (`/etc/systemd/system/nuos-*.service`).
 
