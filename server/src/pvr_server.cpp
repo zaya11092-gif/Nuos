@@ -369,7 +369,7 @@ static void pair_with_phone(const std::string& ip) {
         close(g_phone_ctl);
         g_phone_ctl = -1;
     }
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    int fd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
     sockaddr_in a{};
     a.sin_family = AF_INET;
     a.sin_port = htons(kPairPort);
@@ -398,7 +398,7 @@ static void pair_with_phone(const std::string& ip) {
 }
 
 static void* announce_listener(void*) {
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
     sockaddr_in a{};
     a.sin_family = AF_INET;
     a.sin_port = htons(kPairPort);
@@ -428,7 +428,7 @@ static void* announce_listener(void*) {
 }
 
 static void* pose_listener(void*) {
-    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    int fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
     sockaddr_in a{};
     a.sin_family = AF_INET;
     a.sin_port = htons(kPosePort);
@@ -453,7 +453,7 @@ static void* pose_listener(void*) {
 // ---------------------------------------------------------------- video out
 static void* video_server(void* arg) {
     HevcEncoder* enc = (HevcEncoder*)arg;
-    int lfd = socket(AF_INET, SOCK_STREAM, 0);
+    int lfd = socket(AF_INET, SOCK_STREAM | SOCK_CLOEXEC, 0);
     int one = 1;
     setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
     sockaddr_in a{};
@@ -466,7 +466,7 @@ static void* video_server(void* arg) {
     }
     LOGI("video server on TCP %u", kVideoPort);
     while (!g_stop) {
-        int vfd = accept(lfd, nullptr, nullptr);
+        int vfd = accept4(lfd, nullptr, nullptr, SOCK_CLOEXEC);
         if (vfd < 0) continue;
         int nd = 1;
         setsockopt(vfd, IPPROTO_TCP, TCP_NODELAY, &nd, sizeof nd);
