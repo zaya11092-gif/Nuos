@@ -46,6 +46,7 @@ jobs:
             -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build \
             > build.log 2>&1 || { grep -aE "error:" build.log | head -30; \
+            grep -aB2 -A12 "Undefined symbols" build.log | head -40; \
             grep -aB2 -A6 "The following build commands failed" build.log | head -20; exit 1; }
           grep -aE "error:" build.log | head -10 || true
 
