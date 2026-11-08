@@ -320,7 +320,9 @@ static void handle_tlv(int fd, uint8_t type, const std::vector<uint8_t>& pl) {
     case TLV_LAUNCH: {
         std::string cmd((const char*)pl.data(), pl.size());
         LOGI("launch request: %s", cmd.c_str());
-        std::string full = "DISPLAY=:0 nohup " + cmd +
+        const char* disp = getenv("DISPLAY");
+        std::string full = std::string("DISPLAY=") + (disp && *disp ? disp : ":0")
+                           + " nohup " + cmd +
                            " >/dev/null 2>&1 &";
         int rc = system(full.c_str());
         (void)rc;
