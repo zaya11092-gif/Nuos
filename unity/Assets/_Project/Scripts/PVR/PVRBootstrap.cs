@@ -42,7 +42,10 @@ namespace CardboardXR.PVR
             // Feed head orientation to the board (room-space camera quat).
             var cam = Camera.main;
             if (cam != null && PVRLink.Instance != null)
+            {
                 PVRLink.Instance.HeadQuat = cam.transform.rotation;
+                PVRLink.Instance.HeadPos = cam.transform.position;
+            }
         }
     }
 }

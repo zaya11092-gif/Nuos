@@ -23,6 +23,9 @@ namespace CardboardXR.PVR
         string[] _windowTitles = Array.Empty<string>();
         uint[] _windowIds = Array.Empty<uint>();
         GameObject[] _buttons;
+        GameObject _powerButton;
+        int _powerIndex = -1;
+        bool _vrActive;
 
         public void Setup(Camera camera, PVRLink link, PVRDecoder decoder)
         {
@@ -136,6 +139,17 @@ namespace CardboardXR.PVR
             parent.SetParent(transform, false);
             parent.localPosition = new Vector3(0f, -Width * 9f / 32f - 0.12f, -0.02f);
             float bw = Width / Mathf.Max(3, _buttons.Length) - 0.04f;
+            // POWER MODE tile (always first, red): launches SteamVR on the
+            // board, bridges SLAM pose + hands, and full-screens the stream.
+            var pm = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pm.name = "PowerMode";
+            pm.transform.SetParent(parent, false);
+            pm.transform.localPosition = new Vector3(-(bw + 0.04f), 0f, 0f);
+            pm.transform.localScale = new Vector3(bw, 0.05f, 0.03f);
+            pm.GetComponent<Renderer>().material.color = new Color(0.75f, 0.1f, 0.1f);
+            pm.AddComponent<BoxCollider>();
+            _powerButton = pm;
+
             int n = _buttons.Length;
             for (int i = 0; i < n; i++)
             {
@@ -166,8 +180,17 @@ namespace CardboardXR.PVR
             else
                 System.Array.Resize(ref _buttons, _buttons.Length + 1);
             _windowIds = _windowIds.Append(uint.MaxValue).ToArray();
-            _windowTitles = _windowTitles.Append("SteamVR").ToArray();
+            _windowTitles = _windowTitles.Append("POWER MODE").ToArray();
             _buttons[^1] = vr;
+            _powerIndex = _windowIds.Length - 1;
+        }
+
+        /// <summary>POWER MODE: SteamVR on the board + phone as its display.
+        /// SLAM pose (6DoF) and hand pinches keep streaming from this app.</summary>
+        void EnterPowerMode()
+        {
+            _link.LaunchSteamVR();
+            Invoke(nameof(StartVrStream), 14f);
         }
 
         void StartVrStream()
@@ -184,7 +207,15 @@ namespace CardboardXR.PVR
             {
                 if (_windowTitles[i] != "SteamVR") continue;
                 _link.StreamWindow(_windowIds[i]);
-                Debug.Log("[FloatingWindow] VR stream -> " + _windowTitles[i]);
+                _vrActive = true;
+                // Fullscreen VR display: grow the quad and pull it closer.
+                Width = 2.6f;
+                transform.localPosition =
+                    _cam.transform.rotation * new Vector3(0f, 0.05f, 0.9f);
+                transform.rotation = Quaternion.LookRotation(
+                    _cam.transform.forward, Vector3.up);
+                _quad.transform.localScale = new Vector3(Width, Width * 9f / 16f, 1f);
+                Debug.Log("[FloatingWindow] VR display active");
                 return;
             }
             Invoke(nameof(StartVrStream), 3f);
@@ -217,9 +248,8 @@ namespace CardboardXR.PVR
                     if (_buttons[i] != go) continue;
                     if (_windowIds[i] == uint.MaxValue)
                     {
-                        Debug.Log("[FloatingWindow] launching SteamVR");
-                        _link.LaunchSteamVR();
-                        Invoke(nameof(StartVrStream), 12f);
+                        Debug.Log("[FloatingWindow] POWER MODE: launching SteamVR");
+                        EnterPowerMode();
                     }
                     else
                     {

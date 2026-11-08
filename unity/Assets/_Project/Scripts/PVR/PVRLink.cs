@@ -226,14 +226,16 @@ namespace CardboardXR.PVR
         void PoseLoop()
         {
             _pose = new UdpClient();
-            var pkt = new byte[36];
+            var pkt = new byte[48];  // quat f32x4 | pos f32x3 | accel f32x3 | i64 ns
             while (_running)
             {
                 var q = HeadQuat;
+                var p = HeadPos;
                 Array.Copy(new[] { q.w, q.x, q.y, q.z }, pkt, 4);
+                Array.Copy(new[] { p.x, p.y, p.z }, 0, pkt, 16, 3);
                 long ns = Stopwatch.GetTimestamp() * 1000000000L / Stopwatch.Frequency;
                 var ts = BitConverter.GetBytes(ns);
-                ts.CopyTo(pkt, 28);
+                ts.CopyTo(pkt, 40);
                 try
                 {
                     var ip = _boardIpFound != "" ? _boardIpFound : boardIp;
@@ -247,6 +249,8 @@ namespace CardboardXR.PVR
 
         /// <summary>Head orientation (room space); fed by the stereo rig.</summary>
         public Quaternion HeadQuat = Quaternion.identity;
+        /// <summary>Head position (room space, meters); fed by the stereo rig.</summary>
+        public Vector3 HeadPos = Vector3.zero;
 
         // Hand state for SteamVR controllers (fed by PVRHands).
         public static float LeftPinch, RightPinch;
