@@ -1,0 +1,24 @@
+#pragma once
+
+#include <memory>
+
+#include "UDPsocket.h"
+#include "openvr_driver.h"
+
+#include "hmd_device_driver.h"
+
+class OpenTrackDeviceProvider : public vr::IServerTrackedDeviceProvider {
+public:
+  vr::EVRInitError Init(vr::IVRDriverContext *pDriverContext) override;
+  void Cleanup() override;
+  const char *const *GetInterfaceVersions() override;
+  void RunFrame() override;
+  bool ShouldBlockStandbyMode() override;
+  void EnterStandby() override;
+  void LeaveStandby() override;
+
+private:
+  std::unique_ptr<OpenTrackDeviceDriver> opentrack_device_;
+  std::unique_ptr<OpenTrackControllerDriver> left_controller_;
+  std::unique_ptr<OpenTrackControllerDriver> right_controller_;
+};
