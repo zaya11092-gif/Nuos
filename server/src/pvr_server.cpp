@@ -200,13 +200,24 @@ public:
     // Encode one BGRA frame. Returns true and fills `au` (Annex-B) on success.
     // On the FIRST successful packet, strips VPS/SPS/PPS into *header_nals
     // and the AU becomes the remaining NALs.
+    void set_source_size(int sw, int sh) {
+        if (sw == src_w_ && sh == src_h_) return;
+        if (sw <= 0 || sh <= 0) return;
+        src_w_ = sw; src_h_ = sh;
+        if (sws_) sws_freeContext(sws_);
+        sws_ = sws_getContext(src_w_, src_h_, AV_PIX_FMT_BGRA,
+                              w_, h_, AV_PIX_FMT_NV12,
+                              SWS_BILINEAR, nullptr, nullptr, nullptr);
+        LOGI("sws rescaled: src %dx%d -> enc %dx%d", src_w_, src_h_, w_, h_);
+    }
+
     bool encode_bgra(const uint8_t* bgra, int stride, std::vector<uint8_t>& au) {
         if (!ready()) return false;
         uint8_t* dst[2] = { nv12_, nv12_ + (size_t)w_ * h_ };
         const uint8_t* src[1] = { bgra };
         int sstr[1] = { stride };
         int dstr[2] = { w_, w_ };
-        sws_scale(sws_, src, sstr, 0, h_, dst, dstr);
+        sws_scale(sws_, src, sstr, 0, src_h_, dst, dstr);
 
         if (av_image_fill_arrays(sw_->data, sw_->linesize, nv12_,
                                  AV_PIX_FMT_NV12, w_, h_, 1) < 0) {
@@ -294,6 +305,7 @@ private:
     }
 
     int w_ = 0, h_ = 0;
+    int src_w_ = 0, src_h_ = 0;
     SwsContext* sws_ = nullptr;
     uint8_t* nv12_ = nullptr;
     int nv12_size_ = 0;
@@ -476,7 +488,15 @@ static void* video_server(void* arg) {
             uint32_t win = g_stream_window;
             if (!win) { usleep(16000); continue; }
             WinImage img;
-            if (!nuos_capture_window(win, img)) { usleep(100000); continue; }
+            if (!nuos_capture_window(win, img)) {
+                static int cfails = 0;
+                if ((cfails++ & 15) == 0)
+                    LOGI("capture failed for window %u (attempt %d)", win, cfails);
+                usleep(100000);
+                continue;
+            }
+            if ((frames == 0)) LOGI("captured %ux%u stride %u", img.width, img.height, img.stride);
+            enc->set_source_size((int)img.width, (int)img.height);
             std::vector<uint8_t> au;
             if (!enc->encode_bgra(img.data.data(), (int)img.stride, au) ||
                 au.empty()) {
