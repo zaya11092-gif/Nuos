@@ -7,6 +7,10 @@ on:
     tags: ["v*"]
     paths: [".github/workflows/ios.yml"]
 
+concurrency:
+  group: ios-build
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
