@@ -309,14 +309,14 @@ vr::EVRInitError OpenTrackControllerDriver::Activate(uint32_t unObjectId) {
   e = vr::VRDriverInput()->CreateScalarComponent(
       container, "/input/trigger/x", &trigger_,
       vr::VRScalarType_Absolute, vr::VRScalarUnits_NormalizedOneSided);
-  if (e != vr::VRInitError_None) return e;
+  if (e != vr::EVRInputError_None) return vr::VRInitError_Driver_Failed;
   e = vr::VRDriverInput()->CreateScalarComponent(
       container, "/input/squeeze/x", &squeeze_,
       vr::VRScalarType_Absolute, vr::VRScalarUnits_NormalizedOneSided);
-  if (e != vr::VRInitError_None) return e;
+  if (e != vr::EVRInputError_None) return vr::VRInitError_Driver_Failed;
   e = vr::VRDriverInput()->CreateBooleanComponent(
       container, "/input/menu/click", &menu_);
-  if (e != vr::VRInitError_None) return e;
+  if (e != vr::EVRInputError_None) return vr::VRInitError_Driver_Failed;
 
   return vr::VRInitError_None;
 }
