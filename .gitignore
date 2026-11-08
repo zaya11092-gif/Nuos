@@ -1,8 +1,17 @@
 # build outputs, local junk
-build/
+/build/
+server/build/
 *.img
 *.iso
 *.ipa
 *.png
 !legacy/evidence/*.png
 serial.log
+
+# Unity import caches (unity/build/Unity-iPhone Xcode project IS committed)
+unity/Library/
+unity/Temp/
+unity/Logs/
+unity/UserSettings/
+unity/obj/
+unity/Builds/
