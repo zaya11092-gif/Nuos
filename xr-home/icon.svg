@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- NuOS mark: headset arc around a signal node -->
-  <rect x="4" y="4" width="120" height="120" rx="26" fill="#101418"/>
-  <path d="M 28 78 A 36 36 0 0 1 100 78" fill="none" stroke="#2fb2ff" stroke-width="10" stroke-linecap="round"/>
-  <circle cx="64" cy="42" r="10" fill="#2fb2ff"/>
-  <circle cx="64" cy="42" r="17" fill="none" stroke="#8fd4ff" stroke-width="3" opacity="0.7"/>
-  <path d="M 44 92 L 84 92" stroke="#e8eef2" stroke-width="8" stroke-linecap="round"/>
-</svg>

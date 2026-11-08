@@ -1,1 +1,0 @@
-root=PARTUUID=%ROOT_PARTUUID% ro quiet console=ttyS0,115200 intel_iommu=on

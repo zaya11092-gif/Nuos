@@ -1,22 +1,8 @@
-# Build outputs
+# build outputs, local junk
 build/
-export/
-dist/*.img
-dist/*.img.xz
 *.img
 *.iso
 *.ipa
-Payload/
-xcarchive/
-.derived/
+*.png
+!legacy/evidence/*.png
 serial.log
-# Godot
-.godot/
-xr-home/export/
-# CMake
-CMakeCache.txt
-CMakeFiles/
-cmake-build-*/
-# Godot-cpp / monado clones
-third_party/
-vendor/

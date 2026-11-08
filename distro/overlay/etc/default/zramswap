@@ -1,5 +1,0 @@
-# /etc/default/zramswap - NuOS overlay configuration for zram-tools
-# Compressed RAM swap keeps the render board responsive without eMMC wear.
-ALGO=zstd
-PERCENT=50
-PRIORITY=100
