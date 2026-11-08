@@ -120,8 +120,8 @@ private:
   bool right_;
   vr::TrackedDeviceIndex_t device_id_;
   std::string serial_number_;
-  vr::VRDriverInput::ScalarComponentHandle_t trigger_ = 0;
-  vr::VRDriverInput::ScalarComponentHandle_t squeeze_ = 0;
-  vr::VRDriverInput::BooleanComponentHandle_t menu_ = 0;
+  vr::VRInputComponentHandle_t trigger_ = 0;
+  vr::VRInputComponentHandle_t squeeze_ = 0;
+  vr::VRInputComponentHandle_t menu_ = 0;
   bool squeeze_state_ = false;
 };
