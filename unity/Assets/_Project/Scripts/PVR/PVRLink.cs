@@ -91,7 +91,7 @@ namespace CardboardXR.PVR
             try { _ctl?.Close(); } catch { }
         }
 
-        void Status(string s) { _status.Enqueue(s); Debug.Log("[PVRLink] " + s); }
+        void Status(string s) { _status.Enqueue(s); UnityEngine.Debug.Log("[PVRLink] " + s); }
 
         // ------------------------------------------------------------ announce
         void AnnounceLoop()
@@ -294,7 +294,7 @@ namespace CardboardXR.PVR
         void Update() { while (Q.TryDequeue(out var a)) a(); }
         public static void Dispatch(Action a)
         {
-            if (_i == null) { Debug.LogWarning("[PVRLink] no main-thread dispatcher"); return; }
+            if (_i == null) { UnityEngine.Debug.LogWarning("[PVRLink] no main-thread dispatcher"); return; }
             Q.Enqueue(a);
         }
     }
