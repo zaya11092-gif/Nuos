@@ -301,11 +301,11 @@ vr::EVRInitError OpenTrackControllerDriver::Activate(uint32_t unObjectId) {
   vr::VRProperties()->SetStringProperty(
       container, vr::Prop_TrackingSystemName_String, "driver_opentrack");
   vr::VRProperties()->SetInt32Property(
-      container, vr::Prop_ControllerHandTypePriority_Int32, right_ ? 1 : 0);
+      container, vr::Prop_ControllerHandSelectionPriority_Int32, right_ ? 1 : 0);
   vr::VRProperties()->SetBoolProperty(
       container, vr::Prop_NeverTracked_Bool, false);
 
-  vr::EVRInitError e;
+  vr::EVRInputError e;
   e = vr::VRDriverInput()->CreateScalarComponent(
       container, "/input/trigger/x", &trigger_,
       vr::VRScalarType_Absolute, vr::VRScalarUnits_NormalizedOneSided);
