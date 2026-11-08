@@ -30,14 +30,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release download xcode-src --repo "$GITHUB_REPOSITORY" \
-            --pattern "NuOS-xcode.zip" --output xcode.zip --clobber
-          ls -lh xcode.zip
-          unzip -q xcode.zip
-          find . -maxdepth 3 -name "*.xcodeproj" -type d
+            --pattern "NuOS-xcode.zip" --output xcodeproj.zip --clobber
+          [ -f xcodeproj.zip ] || mv xcode xcodeproj.zip
+          ls -lh xcodeproj.zip
+          unzip -q xcodeproj.zip
+          find . -maxdepth 5 -name "*.xcodeproj" -type d
 
       - name: Build (unsigned, iphoneos)
         run: |
-          PROJ=$(find . -maxdepth 3 -name "Unity-iPhone.xcodeproj" -type d | head -1)
+          PROJ=$(find . -maxdepth 5 -name "Unity-iPhone.xcodeproj" -type d | head -1)
           cd "$(dirname "$PROJ")"
           xcodebuild -project Unity-iPhone.xcodeproj -scheme Unity-iPhone \
             -configuration Release -sdk iphoneos -destination "generic/platform=iOS" \
