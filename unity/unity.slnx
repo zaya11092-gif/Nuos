@@ -1,0 +1,20 @@
+﻿<Solution>
+  <Project Path="CardboardXR.Stereo.Tests.csproj" />
+  <Project Path="CardboardXR.Hands.csproj" />
+  <Project Path="CardboardXR.Stereo.csproj" />
+  <Project Path="CardboardXR.UI.csproj" />
+  <Project Path="CardboardXR.Demos.csproj" />
+  <Project Path="CardboardXR.Interaction.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
+  <Project Path="Assembly-CSharp-Editor.csproj" />
+  <Project Path="CardboardXR.Demos.Paint.Tests.csproj" />
+  <Project Path="CardboardXR.Demos.Video.csproj" />
+  <Project Path="CardboardXR.Demos.Paint.csproj" />
+  <Project Path="CardboardXR.Tracking.csproj" />
+  <Project Path="CardboardXR.Demos.Rush.csproj" />
+  <Project Path="CardboardXR.Demos.Portal.csproj" />
+  <Project Path="CardboardXR.Tests.Support.csproj" />
+  <Project Path="CardboardXR.Demos.Portal.Tests.csproj" />
+  <Project Path="CardboardXR.Demos.Video.Tests.csproj" />
+  <Project Path="CardboardXR.Demos.Rush.Tests.csproj" />
+</Solution>
