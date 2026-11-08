@@ -1,6 +1,7 @@
 # build outputs, local junk
 /build/
 server/build/
+unity/Builds/
 *.img
 *.iso
 *.ipa
