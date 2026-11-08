@@ -25,9 +25,8 @@ def announcer():
     s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     pkt = b"pvr" + bytes([0]) + struct.pack("<I", (2 << 24))
     while running:
-        for tgt in (("<broadcast>", 33333), (BOARD, 33333)):
-            try: s.sendto(pkt, tgt)
-            except OSError: pass
+        try: s.sendto(pkt, (BOARD, 33333))  # unicast only: one source IP
+        except OSError: pass
         time.sleep(0.5)
 
 threading.Thread(target=announcer, daemon=True).start()

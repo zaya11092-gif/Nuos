@@ -28,6 +28,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <pthread.h>
+#include <poll.h>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -353,8 +354,15 @@ static void control_reader(int fd) {
 // ---------------------------------------------------------------- pairing
 static void pair_with_phone(const std::string& ip) {
     std::lock_guard<std::mutex> lk(g_phone_mtx);
-    // Always re-pair on a fresh announce: the previous control socket may be
-    // a dead peer (phone restarted), and announces repeat every 500 ms.
+    // Same phone announcing again: keep the live connection, re-pair only if
+    // it is dead (phone restarted) or the announcing IP changed.
+    if (g_phone_ctl >= 0 && g_phone_ip == ip) {
+        pollfd p{g_phone_ctl, POLLIN | POLLRDHUP, 0};
+        int r = poll(&p, 1, 0);
+        if (r >= 0 && !(p.revents & (POLLRDHUP | POLLERR | POLLHUP)))
+            return;  // still alive
+        LOGI("control socket dead, re-pairing");
+    }
     if (g_phone_ctl >= 0) {
         close(g_phone_ctl);
         g_phone_ctl = -1;
