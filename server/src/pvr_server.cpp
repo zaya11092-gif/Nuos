@@ -72,6 +72,7 @@ static std::atomic<bool> g_vr_mode{false};   // SteamVR streaming
 static std::atomic<float> g_lpinch{0}, g_rpinch{0};
 static std::atomic<uint8_t> g_handflags{0};  // X11 window id to stream
 static float g_pose_quat[4] = {0, 0, 0, 1};       // latest phone pose
+static float g_pose_pos[3] = {0, 0, 0};           // ARKit room-space meters
 static std::atomic<uint64_t> g_pose_ns{0};
 
 static uint64_t mono_us() {
@@ -462,14 +463,17 @@ static void* pose_listener(void*) {
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
     bind(fd, (sockaddr*)&a, sizeof a);
     LOGI("listening for pose on UDP %u", kPosePort);
-    uint8_t buf[64];
+    uint8_t buf[128];
     while (!g_stop) {
         ssize_t r = recvfrom(fd, buf, sizeof buf, 0, nullptr, nullptr);
-        if (r < 28) continue;
-        float q[4], acc[3];
+        // v2 pose packet (48 B): quat f32x4 | pos f32x3 | accel f32x3 | i64 ns
+        if (r < 48) continue;
+        float q[4], pos[3], acc[3];
         memcpy(q, buf, 16);
-        memcpy(acc, buf + 16, 12);
+        memcpy(pos, buf + 16, 12);
+        memcpy(acc, buf + 28, 12);
         for (int i = 0; i < 4; ++i) g_pose_quat[i] = q[i];
+        for (int i = 0; i < 3; ++i) g_pose_pos[i] = pos[i];
         g_pose_ns = mono_us();
     }
     return nullptr;
@@ -578,7 +582,13 @@ static double* quat_to_opentrack(const float q[4], uint8_t out[80]) {
                         1.0 - 2.0 * (qx * qx + qy * qy));
     const double rad2deg = 57.29577951308232;
     memset(out, 0, 80);
-    double* ot = (double*)out;  // X,Y,Z,Yaw,Pitch,Roll
+    double* ot = (double*)out;  // X,Y,Z (cm), Yaw,Pitch,Roll (deg)
+    // axis map so driver's [X*.01, Z*.01, Y*.01] reproduces ARKit room space
+    ot[0] = q ? 0.0 : 0.0;  // placeholder replaced below
+    float px = g_pose_pos[0], py = g_pose_pos[1], pz = g_pose_pos[2];
+    ot[0] = (double)px * 100.0;   // -> driver x (right)
+    ot[1] = (double)pz * 100.0;   // -> driver y via [1]=Z*.01 (up)
+    ot[2] = (double)py * 100.0;   // -> driver z via [2]=Y*.01 (toward user)
     ot[3] = yaw * rad2deg;
     ot[4] = pitch * rad2deg;
     ot[5] = roll * rad2deg;
