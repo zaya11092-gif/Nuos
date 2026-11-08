@@ -5,7 +5,10 @@ on:
   push:
     branches: [master]
     tags: ["v*"]
-    paths: ["unity/**", ".github/workflows/ios.yml"]
+    paths: [".github/workflows/ios.yml"]
+
+permissions:
+  contents: write
 
 jobs:
   build-ipa:
@@ -18,27 +21,28 @@ jobs:
           sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
           xcodebuild -version
 
-      - name: Locate Xcode project
-        id: proj
+      - name: Download Xcode project (from xcode-src release)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          PROJ=$(find unity -maxdepth 3 -name "*.xcodeproj" -type d | head -1)
-          echo "proj=$PROJ" >> "$GITHUB_OUTPUT"
-          [ -n "$PROJ" ] || { echo "NO XCODE PROJECT COMMITTED — build it in Unity first"; exit 1; }
+          gh release download xcode-src --repo "$GITHUB_REPOSITORY" \
+            --pattern "NuOS-xcode.zip" --output xcode.zip --clobber
+          ls -lh xcode.zip
+          unzip -q xcode.zip
+          find . -maxdepth 3 -name "*.xcodeproj" -type d
 
-      - name: Build (unsigned IPA)
-        working-directory: ${{ steps.proj.outputs.proj }}
+      - name: Build (unsigned, iphoneos)
         run: |
-          set -o pipefail
-          xcodebuild -project $(basename $(pwd)) -scheme Unity-iPhone \
-            -configuration Release -sdk iphoneos \
-            -archivePath build/Unity-iPhone.xcarchive archive \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" | tail -20 || exit 1
+          PROJ=$(find . -maxdepth 3 -name "Unity-iPhone.xcodeproj" -type d | head -1)
+          cd "$(dirname "$PROJ")"
+          xcodebuild -project Unity-iPhone.xcodeproj -scheme Unity-iPhone \
+            -configuration Release -sdk iphoneos -destination "generic/platform=iOS" \
+            -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tail -12
 
       - name: Package unsigned IPA
         run: |
-          APP=$(find unity -type d -path "*Release-iphoneos/*.app" | head -1)
-          [ -n "$APP" ] || APP=$(find . -type d -name "*.app" -path "*Release-iphoneos*" | head -1)
+          APP=$(find . -type d -name "*.app" -path "*Release-iphoneos*" | head -1)
           [ -n "$APP" ] || { echo "no .app found"; exit 1; }
           mkdir -p Payload
           cp -R "$APP" Payload/
