@@ -1,0 +1,62 @@
+name: ios
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    tags: ["v*"]
+    paths: ["unity/**", ".github/workflows/ios.yml"]
+
+jobs:
+  build-ipa:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          xcodebuild -version
+
+      - name: Locate Xcode project
+        id: proj
+        run: |
+          PROJ=$(find unity -maxdepth 3 -name "*.xcodeproj" -type d | head -1)
+          echo "proj=$PROJ" >> "$GITHUB_OUTPUT"
+          [ -n "$PROJ" ] || { echo "NO XCODE PROJECT COMMITTED — build it in Unity first"; exit 1; }
+
+      - name: Build (unsigned IPA)
+        working-directory: ${{ steps.proj.outputs.proj }}
+        run: |
+          set -o pipefail
+          xcodebuild -project $(basename $(pwd)) -scheme Unity-iPhone \
+            -configuration Release -sdk iphoneos \
+            -archivePath build/Unity-iPhone.xcarchive archive \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" | tail -20 || exit 1
+
+      - name: Package unsigned IPA
+        run: |
+          APP=$(find unity -type d -path "*Release-iphoneos/*.app" | head -1)
+          [ -n "$APP" ] || APP=$(find . -type d -name "*.app" -path "*Release-iphoneos*" | head -1)
+          [ -n "$APP" ] || { echo "no .app found"; exit 1; }
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry NuOS.ipa Payload
+          ls -lh NuOS.ipa
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NuOS-ipa
+          path: NuOS.ipa
+          if-no-files-found: error
+
+      - name: Attach to release (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" NuOS.ipa \
+            --title "NuOS $GITHUB_REF_NAME" --generate-notes --latest \
+          || gh release upload "$GITHUB_REF_NAME" NuOS.ipa --clobber
